@@ -7,7 +7,7 @@ import (
     "strconv"
 
     "github.com/golang/glog"
-    "github.com/azsvcbusbench/internal/azsvcbusbench"
+    "github.com/azsvcbusbench/internal/azsvcbus"
 )
 
 var (
@@ -36,7 +36,7 @@ func main( ) {
 
     glog.Infof( "Starting azsvcbusbench %v", version )
 
-    azsvcbusBench := azsvcbusbench.NewAzSvcBusBench( )
+    azsvcbusBench := azsvcbus.NewAzSvcBus( )
 
     setupString( &azsvcbusBench.ConnStr, connStr, "AZSVCBUS_CONN_STR" )
     if 0 == len( azsvcbusBench.ConnStr ) {

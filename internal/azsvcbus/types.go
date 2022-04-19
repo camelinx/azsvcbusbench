@@ -1,4 +1,4 @@
-package azsvcbusbench
+package azsvcbus
 
 import (
     "time"
@@ -8,13 +8,13 @@ import (
     "github.com/Azure/azure-sdk-for-go/sdk/messaging/azservicebus"
 )
 
-type azSvcBusBenchCtx struct {
+type azSvcBusCtx struct {
     client             *azservicebus.Client
     ctx                 context.Context
     wg                 *sync.WaitGroup
 }
 
-type AzSvcBusBench struct {
+type AzSvcBus struct {
     ConnStr             string
     TopicName           string
     SubName             string
@@ -30,5 +30,5 @@ type AzSvcBusBench struct {
     SendInterval        time.Duration
     ReceiveInterval     time.Duration
 
-    azSvcBusBenchCtx
+    azSvcBusCtx
 }
