@@ -10,7 +10,8 @@ import (
 
 type azSvcBusCtx struct {
     client             *azservicebus.Client
-    ctx                 context.Context
+    senderCtx           context.Context
+    receiverCtx         context.Context
     wg                 *sync.WaitGroup
 }
 

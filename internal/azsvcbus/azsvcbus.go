@@ -30,12 +30,14 @@ func ( azSvcBus *AzSvcBus )Start( ) {
 
     azSvcBus.client = client
 
-    ctx, cancel := context.WithTimeout( context.Background( ), azSvcBus.Duration )
+    ctx, _             := context.WithTimeout( context.Background( ), azSvcBus.Duration )
+    azSvcBus.senderCtx  = ctx
+
+    ctx, cancel := context.WithTimeout( context.Background( ), azSvcBus.Duration + ( 2 * time.Minute ) )
     defer func( ) {
         cancel( )
     }( )
-
-    azSvcBus.ctx = ctx
+    azSvcBus.receiverCtx = ctx
 
     uuidsLen := azSvcBus.TotSenders
     if uuidsLen < azSvcBus.TotReceivers {
@@ -74,7 +76,7 @@ func ( azSvcBus *AzSvcBus )sendMessage( id string ) {
 
     defer func( ) {
         glog.Infof( "%v: Sender done", id )
-        sender.Close( azSvcBus.ctx )
+        sender.Close( azSvcBus.senderCtx )
         azSvcBus.wg.Done( )
     }( )
 
@@ -86,7 +88,7 @@ func ( azSvcBus *AzSvcBus )sendMessage( id string ) {
     }
 
     for {
-        err = sender.SendMessage( azSvcBus.ctx, azsvcbusmsg, nil )
+        err = sender.SendMessage( azSvcBus.senderCtx, azsvcbusmsg, nil )
         if err != nil {
             glog.Errorf( "%v: Failed to send message, error = %v", id, err )
             return
@@ -108,13 +110,13 @@ func ( azSvcBus *AzSvcBus )receiveMessage( id string ) {
 
     defer func( ) {
         glog.Infof( "%v: Receiver done", id )
-        receiver.Close( azSvcBus.ctx )
+        receiver.Close( azSvcBus.receiverCtx )
         azSvcBus.wg.Done( )
     }( )
 
     for {
         glog.Infof( "%v: Waiting to receive messages", id )
-        messages, err := receiver.PeekMessages( azSvcBus.ctx, 1, nil )
+        messages, err := receiver.PeekMessages( azSvcBus.receiverCtx, 1, nil )
         if err != nil {
             glog.Errorf( "%v: Failed to receive messages, error = %v", id, err )
             return
