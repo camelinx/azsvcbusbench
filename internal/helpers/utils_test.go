@@ -2,14 +2,11 @@ package helpers
 
 import (
     "testing"
-    "time"
     "math/rand"
     "encoding/json"
 )
 
 func TestGetRandomString( t *testing.T ) {
-    rand.Seed( time.Now( ).UnixNano( ) )
-
     rstrLen := rand.Intn( 256 )
     rstr    := GetRandomString( uint( rstrLen ) )
     if len( rstr ) != rstrLen {
@@ -18,8 +15,6 @@ func TestGetRandomString( t *testing.T ) {
 }
 
 func TestGetRandomJsonString( t *testing.T ) {
-    rand.Seed( time.Now( ).UnixNano( ) )
-
     for i := 0; i < 1; i++ {
         jsonStrLen      := rand.Intn( 1024 )
         jsonStr, retLen := GetRandomJsonString( uint( jsonStrLen ) )

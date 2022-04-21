@@ -1,15 +1,10 @@
 package helpers
 
 import (
-    "time"
     "math/rand"
 )
 
 const alphabets = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
-func init( ) {
-    rand.Seed( time.Now( ).UnixNano( ) )
-}
 
 func GetRandomString( n uint )( string ) {
     rbytes := make( [ ]byte, n )
