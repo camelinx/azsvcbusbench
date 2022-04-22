@@ -8,7 +8,13 @@ import (
 )
 
 func getBlockCount( )( int ) {
-    return rand.Intn( 32 )
+    rnum := rand.Intn( 32 )
+    if 0 == rnum {
+        rnum++
+        rnum += rand.Intn( 32 )
+    }
+
+    return rnum
 }
 
 type ipv4Validator func( string )( error )
