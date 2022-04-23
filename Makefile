@@ -20,7 +20,7 @@ azsvcbusbench:
 	$(DOCKER_RUN) -e CGO_ENABLED=0 $(GOLANG_CONTAINER) go build -ldflags "-w -X main.version=${VERSION}" -o $(BINNAME) github.com/azsvcbusbench/cmd/azsvcbusbench
 
 test:
-	$(DOCKER_RUN) $(GOLANG_CONTAINER) go test ./...
+	$(DOCKER_RUN) $(GOLANG_CONTAINER) go test -v ./...
 
 image: azsvcbusbench
 	docker build -f $(DOCKERFILE) -t $(PREFIX):$(TAG) .
