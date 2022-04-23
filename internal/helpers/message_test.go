@@ -2,7 +2,6 @@ package helpers
 
 import (
     "testing"
-    "encoding/json"
 )
 
 func TestInitMsgs( t *testing.T ) {
@@ -55,17 +54,26 @@ func TestGetMsg( t *testing.T ) {
         t.Errorf( "InitMsgs - failed to initialize message context" )
     }
 
-    var msgInst Msg
     for i := 0; i < 32; i++ {
         msg, err := msgs.GetMsg( )
         if err != nil {
             t.Errorf( "GetMsg - failed to get message" )
         }
 
-        err = json.Unmarshal( msg, &msgInst )
+        _, err = msgs.ParseMsg( msg )
         if err != nil {
             t.Errorf( "GetMsg - invalid message %v", string( msg ) )
         }
+    }
+
+    msg, err := msgs.GetMsg( )
+    if err != nil {
+        t.Errorf( "GetMsg - failed to get message" )
+    }
+
+    _, err = msgs.ParseMsg( msg )
+    if err != nil {
+        t.Errorf( "GetMsg - invalid message %v", string( msg ) )
     }
 
     msgs.msgType = MsgTypeMin
@@ -74,9 +82,19 @@ func TestGetMsg( t *testing.T ) {
         t.Errorf( "GetMsg - succeeded for invalid message type lower bound" )
     }
 
+    _, err = msgs.ParseMsg( msg )
+    if err == nil {
+        t.Errorf( "ParseMsg - succeeded for invalid message type lower bound" )
+    }
+
     msgs.msgType = MsgTypeMax
     _, err = msgs.GetMsg( )
     if err == nil {
         t.Errorf( "GetMsg - succeeded for invalid message type upper bound" )
+    }
+
+    _, err = msgs.ParseMsg( msg )
+    if err == nil {
+        t.Errorf( "ParseMsg - succeeded for invalid message type upper bound" )
     }
 }

@@ -21,6 +21,12 @@ var msgTypeGenerators = [ ]msgTypeGenerator {
     MsgTypeJson :   jsonMsgTypeGenerator,
 }
 
+type msgTypeParser func( [ ]byte )( *Msg, error )
+
+var msgTypeParsers = [ ]msgTypeParser {
+    MsgTypeJson :   jsonMsgTypeParser,
+}
+
 type MsgCtx struct {
     ips       [ ]string
     ipsCount     int
@@ -98,10 +104,28 @@ func ( msgCtx *MsgCtx )GetMsg( )( msg [ ]byte, err error ) {
     return nil, fmt.Errorf( "failed to generate message" )
 }
 
+func ( msgCtx *MsgCtx )ParseMsg( msg [ ]byte )( msgInst *Msg, err error ) {
+    if msgCtx.msgType > MsgTypeMin && msgCtx.msgType < MsgTypeMax {
+        return msgTypeParsers[ msgCtx.msgType ]( msg )
+    }
+
+    return nil, fmt.Errorf( "failed to parse message" )
+}
+
 func jsonMsgTypeGenerator( msgInst *Msg )( msg [ ]byte, err error ) {
     if nil == msgInst {
         return nil, fmt.Errorf( "message not set" )
     }
 
     return json.Marshal( msgInst )
+}
+
+func jsonMsgTypeParser( msg [ ]byte )( msgInst *Msg, err error ) {
+    if nil == msg || len( msg ) == 0 {
+        return nil, fmt.Errorf( "invalid or empty message" )
+    }
+
+    msgInst = &Msg{ }
+    err = json.Unmarshal( msg, msgInst )
+    return msgInst, err
 }
