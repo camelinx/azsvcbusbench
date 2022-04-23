@@ -13,10 +13,10 @@ const (
     ipv4LoopbackFirstOctet        =   127
 )
 
-type Ipv4AddrType int
+type Ipv4AddrClass int
 
 const (
-    Ipv4AddrClassMin Ipv4AddrType = iota
+    Ipv4AddrClassMin Ipv4AddrClass = iota
     Ipv4AddrClassAny
     Ipv4AddrClassA
     Ipv4AddrClassAPrivate
@@ -33,12 +33,12 @@ var ipv4AddrGenerators = [ ]ipv4AddrGenerator {
     Ipv4AddrClassLoopback    :    getLoopbackIpv4,
 }
 
-func GetIpv4Block( blockCount int, addrType Ipv4AddrType )( block [ ]string, err error ) {
-    if addrType <= Ipv4AddrClassMin || addrType >= Ipv4AddrClassMax {
-        return nil, fmt.Errorf( "invalid address type %v\n", addrType )
+func GetIpv4Block( blockCount int, addrClass Ipv4AddrClass )( block [ ]string, err error ) {
+    if addrClass <= Ipv4AddrClassMin || addrClass >= Ipv4AddrClassMax {
+        return nil, fmt.Errorf( "invalid address type %v\n", addrClass )
     }
 
-    ipv4AddrGeneratorHandler := ipv4AddrGenerators[ addrType ]
+    ipv4AddrGeneratorHandler := ipv4AddrGenerators[ addrClass ]
     for i := 0; i < blockCount; i++ {
         ipv4Addr, _ := ipv4AddrGeneratorHandler( )
         block = append( block, ipv4Addr )

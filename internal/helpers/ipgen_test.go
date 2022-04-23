@@ -77,7 +77,7 @@ func validateClassLoopback( sip string )( err error ) {
     return nil
 }
 
-func testIpv4Block( t *testing.T, count int, class Ipv4AddrType ) {
+func testIpv4Block( t *testing.T, count int, class Ipv4AddrClass ) {
     block, err := GetIpv4Block( count, class )
     if err != nil {
         t.Errorf( "GetIpv4Block - error for count %v and class %v: error %v", count, class, err )
