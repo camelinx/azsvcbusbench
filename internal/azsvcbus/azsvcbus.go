@@ -9,16 +9,26 @@ import (
     "github.com/golang/glog"
     "github.com/google/uuid"
     "github.com/Azure/azure-sdk-for-go/sdk/messaging/azservicebus"
+    "github.com/azsvcbusbench/internal/helpers"
 )
 
 const message = "Hello World!"
 
-func NewAzSvcBus( )( *AzSvcBus ) {
-    return &AzSvcBus {
+func NewAzSvcBus( )( azSvcBus *AzSvcBus ) {
+    azSvcBus = &AzSvcBus {
         azSvcBusCtx : azSvcBusCtx {
             wg    : &sync.WaitGroup{ },
         },
     }
+
+    msgCtx, err := helpers.InitMsgs( 64, helpers.Ipv4AddrClassAny, helpers.MsgTypeJson )
+    if err != nil {
+        glog.Errorf( "Failed to initialize message generator" )
+        return nil
+    }
+    azSvcBus.msgCtx = msgCtx
+
+    return azSvcBus
 }
 
 func ( azSvcBus *AzSvcBus )Start( ) {

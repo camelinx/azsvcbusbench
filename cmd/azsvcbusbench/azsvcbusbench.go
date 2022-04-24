@@ -37,6 +37,9 @@ func main( ) {
     glog.Infof( "Starting azsvcbusbench %v", version )
 
     azsvcbusBench := azsvcbus.NewAzSvcBus( )
+    if azsvcbusBench == nil {
+        glog.Fatalf( "Failed to initialize service bus bench" )
+    }
 
     setupString( &azsvcbusBench.ConnStr, connStr, "AZSVCBUS_CONN_STR" )
     if 0 == len( azsvcbusBench.ConnStr ) {

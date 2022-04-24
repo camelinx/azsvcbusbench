@@ -6,12 +6,14 @@ import (
     "context"
 
     "github.com/Azure/azure-sdk-for-go/sdk/messaging/azservicebus"
+    "github.com/azsvcbusbench/internal/helpers"
 )
 
 type azSvcBusCtx struct {
     client             *azservicebus.Client
     senderCtx           context.Context
     receiverCtx         context.Context
+    msgCtx             *helpers.MsgCtx
     wg                 *sync.WaitGroup
 }
 
