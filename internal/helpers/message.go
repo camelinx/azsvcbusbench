@@ -41,7 +41,7 @@ type Msg struct {
     ClientIp    string  `json:"clientip"`
 }
 
-func getCurTimeStamp( )( int64 ) {
+func GetCurTimeStamp( )( int64 ) {
     return time.Now( ).Unix( )
 }
 
@@ -92,7 +92,7 @@ func ( msgCtx *MsgCtx )GetMsg( )( msg [ ]byte, err error ) {
     msgInst := &Msg {
         Current     :   current,
         Delta       :   delta,
-        TimeStamp   :   getCurTimeStamp( ),
+        TimeStamp   :   GetCurTimeStamp( ),
     }
 
     msgInst.ClientIp = msgCtx.ips[ rand.Intn( msgCtx.ipsCount ) ]

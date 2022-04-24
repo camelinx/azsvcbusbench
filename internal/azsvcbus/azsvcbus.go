@@ -4,7 +4,6 @@ import (
     "sync"
     "time"
     "context"
-    "fmt"
 
     "github.com/golang/glog"
     "github.com/google/uuid"
@@ -90,18 +89,23 @@ func ( azSvcBus *AzSvcBus )sendMessage( id string ) {
         azSvcBus.wg.Done( )
     }( )
 
-    msg := fmt.Sprintf( "%v:%v:%v", time.Now( ).Format( time.UnixDate ), id, message )
-
     azsvcbusmsg := &azservicebus.Message{
-        Body                  : [ ]byte( msg ),
         ApplicationProperties : map[ string ]interface{ }{ azSvcBus.PropName : id },
     }
 
     for {
+        msg, err := azSvcBus.msgCtx.GetMsg( )
+        if err != nil {
+            glog.Errorf( "%v: Failed to get message, error = %v", id, err )
+            break
+        }
+
+        azsvcbusmsg.Body = msg
+
         err = sender.SendMessage( azSvcBus.senderCtx, azsvcbusmsg, nil )
         if err != nil {
             glog.Errorf( "%v: Failed to send message, error = %v", id, err )
-            return
+            break
         }
 
         time.Sleep( azSvcBus.SendInterval )
@@ -125,7 +129,6 @@ func ( azSvcBus *AzSvcBus )receiveMessage( id string ) {
     }( )
 
     for {
-        glog.Infof( "%v: Waiting to receive messages", id )
         messages, err := receiver.PeekMessages( azSvcBus.receiverCtx, 1, nil )
         if err != nil {
             glog.Errorf( "%v: Failed to receive messages, error = %v", id, err )
@@ -144,11 +147,16 @@ func ( azSvcBus *AzSvcBus )receiveMessage( id string ) {
 
             msg, err := message.Body( )
             if err != nil {
-                glog.Infof( "%v: Failed to get received message body, error = %v", id, err )
+                glog.Errorf( "%v: Failed to get received message body, error = %v", id, err )
                 break
             }
 
-            glog.Infof( "%v: Received message [%v]", id, string( msg ) )
+            msgInst, err := azSvcBus.msgCtx.ParseMsg( msg )
+            if err != nil {
+                glog.Errorf( "%v: Failed to parse message, error = %v", id, err )
+            }
+
+            glog.Infof( "%v: %v %v %v %v %v", msgInst.Current, msgInst.Delta, msgInst.ClientIp, msgInst.TimeStamp, helpers.GetCurTimeStamp( ) ) 
         }
 
         time.Sleep( azSvcBus.ReceiveInterval )
