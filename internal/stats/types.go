@@ -3,6 +3,7 @@ package stats
 import (
     "context"
     "sync"
+    "time"
 )
 
 type statsElem struct {
