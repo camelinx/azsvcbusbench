@@ -11,7 +11,9 @@ import (
     "github.com/azsvcbusbench/internal/helpers"
 )
 
-const message = "Hello World!"
+var (
+    msgContentType = "application/json"
+)
 
 func NewAzSvcBus( )( azSvcBus *AzSvcBus ) {
     azSvcBus = &AzSvcBus {
@@ -90,7 +92,9 @@ func ( azSvcBus *AzSvcBus )sendMessage( id string ) {
     }( )
 
     azsvcbusmsg := &azservicebus.Message{
-        ApplicationProperties : map[ string ]interface{ }{ azSvcBus.PropName : id },
+        MessageID               : &id,
+        ApplicationProperties   : map[ string ]interface{ }{ azSvcBus.PropName : id },
+        ContentType             : &msgContentType,
     }
 
     for {
@@ -136,6 +140,11 @@ func ( azSvcBus *AzSvcBus )receiveMessage( id string ) {
         }
 
         for _, message := range messages {
+            if message.ContentType != nil && *message.ContentType != msgContentType {
+                glog.Errorf( "%v: Ignoring message with unknown content type %v", id, message.ContentType )
+                continue
+            }
+
             propVal, exists := message.ApplicationProperties[ azSvcBus.PropName ]
             if exists {
                 sndid, ok := propVal.( string )
