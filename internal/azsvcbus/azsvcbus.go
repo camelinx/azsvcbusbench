@@ -71,6 +71,7 @@ func ( azSvcBus *AzSvcBus )Start( ) {
     }
 
     azSvcBus.stats.SetIds( azSvcBus.uuids )
+    azSvcBus.stats.SetStatsDumpInterval( azSvcBus.StatDumpInterval )
     azSvcBus.stats.StartDumper( )
 
     if !azSvcBus.SenderOnly {

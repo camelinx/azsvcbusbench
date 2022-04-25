@@ -43,6 +43,10 @@ func ( stats *Stats )SetCtx( ctx context.Context ) {
     stats.ctx = ctx
 }
 
+func ( stats *Stats )SetStatsDumpInterval( intvl time.Duration ) {
+    stats.dumpInterval = intvl
+}
+
 func ( stats *Stats )StartDumper( ) {
     stats.wg.Add( 1 )
     go func( ) {
@@ -66,7 +70,7 @@ func ( stats *Stats )UpdateReceiverStat( idx, fromIdx int, incrBy, lIncrBy uint6
 }
 
 func ( stats *Stats )dumpStats( ) {
-    ticker := time.NewTicker( 30 * time.Second )
+    ticker := time.NewTicker( stats.dumpInterval )
 
     for {
         select {
@@ -81,6 +85,7 @@ func ( stats *Stats )dumpStats( ) {
 }
 
 func ( stats *Stats )dump( byId bool ) {
+    glog.Infof( "---" )
     for i, v := range stats.elems {
         avgLatency := uint64( 0 )
         if v.rcvd > 0 {
@@ -91,8 +96,9 @@ func ( stats *Stats )dump( byId bool ) {
 
         if byId {
             for j, jv := range v.rcvdById {
-                glog.Info( "%v: Received %v", stats.ids[ j ], jv )
+                glog.Infof( "%v: Received %v", stats.ids[ j ], jv )
             }
         }
     }
+    glog.Infof( "---" )
 }

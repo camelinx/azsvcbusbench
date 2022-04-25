@@ -24,6 +24,7 @@ var (
     testTime    = flag.Duration( "test-duration", 5 * time.Minute, "Total test time" )
     sndrOnly    = flag.Bool( "sender-only", false, "Enable sender only" )
     rcvrOnly    = flag.Bool( "receiver-only", false, "Enable receiver only" )
+    statIntvl   = flag.Duration( "stats-dump-interval", 30 * time.Second, "Interval after statistics will be dumped" )
 )
 
 func main( ) {
@@ -59,6 +60,7 @@ func main( ) {
     setupDuration( &azsvcbusBench.Duration, testTime, "AZSVCBUS_TEST_DURATION" )
     setupDuration( &azsvcbusBench.SendInterval, sndIntvl, "AZSVCBUS_SEND_INTERVAL" )
     setupDuration( &azsvcbusBench.ReceiveInterval, rcvIntvl, "AZSVCBUS_RECEIVE_INTERVAL" )
+    setupDuration( &azsvcbusBench.StatDumpInterval, statIntvl, "AZSVCBUS_STATS_DUMP_INTERVAL" )
 
     glog.Infof( "Starting Azure Service Bus Bench test %+v", azsvcbusBench )
     azsvcbusBench.Start( )

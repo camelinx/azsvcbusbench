@@ -41,6 +41,7 @@ type AzSvcBus struct {
     Duration            time.Duration
     SendInterval        time.Duration
     ReceiveInterval     time.Duration
+    StatDumpInterval    time.Duration
 
     azSvcBusCtx
 }
