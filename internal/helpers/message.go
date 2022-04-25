@@ -27,7 +27,7 @@ var msgTypeParsers = [ ]msgTypeParser {
     MsgTypeJson :   jsonMsgTypeParser,
 }
 
-type MsgCtx struct {
+type Msgs struct {
     ips       [ ]string
     ipsCount     int
     ipClass      Ipv4AddrClass
@@ -63,7 +63,7 @@ func getCounters( )( int, int ) {
     return getRandomInt( 4096 ), getRandomInt( 64 )
 }
 
-func InitMsgs( ipCount int, ipClass Ipv4AddrClass, msgType MsgType )( msgCtx *MsgCtx, err error ) {
+func InitMsgs( ipCount int, ipClass Ipv4AddrClass, msgType MsgType )( msgs *Msgs, err error ) {
     if 0 >= ipCount {
         return nil, fmt.Errorf( "ip address count is invalid" )
     }
@@ -72,21 +72,21 @@ func InitMsgs( ipCount int, ipClass Ipv4AddrClass, msgType MsgType )( msgCtx *Ms
         return nil, fmt.Errorf( "invalid message type" )
     }
 
-    msgCtx = &MsgCtx {
+    msgs = &Msgs {
         ipClass  :  ipClass,
         msgType  :  msgType,
         ipsCount :  ipCount,
     }
 
-    msgCtx.ips, err = GetIpv4Block( msgCtx.ipsCount, msgCtx.ipClass )
+    msgs.ips, err = GetIpv4Block( msgs.ipsCount, msgs.ipClass )
     if err != nil {
         return nil, err
     }
 
-    return msgCtx, nil
+    return msgs, nil
 }
 
-func ( msgCtx *MsgCtx )GetMsg( )( msg [ ]byte, err error ) {
+func ( msgs *Msgs )GetMsg( )( msg [ ]byte, err error ) {
     current, delta := getCounters( )
 
     msgInst := &Msg {
@@ -95,18 +95,18 @@ func ( msgCtx *MsgCtx )GetMsg( )( msg [ ]byte, err error ) {
         TimeStamp   :   GetCurTimeStamp( ),
     }
 
-    msgInst.ClientIp = msgCtx.ips[ rand.Intn( msgCtx.ipsCount ) ]
+    msgInst.ClientIp = msgs.ips[ rand.Intn( msgs.ipsCount ) ]
 
-    if msgCtx.msgType > MsgTypeMin && msgCtx.msgType < MsgTypeMax {
-        return msgTypeGenerators[ msgCtx.msgType ]( msgInst )
+    if msgs.msgType > MsgTypeMin && msgs.msgType < MsgTypeMax {
+        return msgTypeGenerators[ msgs.msgType ]( msgInst )
     }
 
     return nil, fmt.Errorf( "failed to generate message" )
 }
 
-func ( msgCtx *MsgCtx )ParseMsg( msg [ ]byte )( msgInst *Msg, err error ) {
-    if msgCtx.msgType > MsgTypeMin && msgCtx.msgType < MsgTypeMax {
-        return msgTypeParsers[ msgCtx.msgType ]( msg )
+func ( msgs *Msgs )ParseMsg( msg [ ]byte )( msgInst *Msg, err error ) {
+    if msgs.msgType > MsgTypeMin && msgs.msgType < MsgTypeMax {
+        return msgTypeParsers[ msgs.msgType ]( msg )
     }
 
     return nil, fmt.Errorf( "failed to parse message" )

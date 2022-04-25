@@ -9,6 +9,7 @@ import (
     "github.com/google/uuid"
     "github.com/Azure/azure-sdk-for-go/sdk/messaging/azservicebus"
     "github.com/azsvcbusbench/internal/helpers"
+    "github.com/azsvcbusbench/internal/stats"
 )
 
 var (
@@ -22,12 +23,14 @@ func NewAzSvcBus( )( azSvcBus *AzSvcBus ) {
         },
     }
 
-    msgCtx, err := helpers.InitMsgs( 64, helpers.Ipv4AddrClassAny, helpers.MsgTypeJson )
+    azSvcBus.stats = stats.NewStats( nil, nil )
+
+    msgs, err := helpers.InitMsgs( 64, helpers.Ipv4AddrClassAny, helpers.MsgTypeJson )
     if err != nil {
         glog.Errorf( "Failed to initialize message generator" )
         return nil
     }
-    azSvcBus.msgCtx = msgCtx
+    azSvcBus.msgs = msgs
 
     return azSvcBus
 }
@@ -49,35 +52,44 @@ func ( azSvcBus *AzSvcBus )Start( ) {
         cancel( )
     }( )
     azSvcBus.receiverCtx = ctx
+    azSvcBus.statsCtx    = ctx
+
+    azSvcBus.stats.SetCtx( azSvcBus.statsCtx )
 
     uuidsLen := azSvcBus.TotSenders
     if uuidsLen < azSvcBus.TotReceivers {
         uuidsLen = azSvcBus.TotReceivers
     }
 
-    uuids := make( [ ]string, uuidsLen )
-    for i := 0; i < azSvcBus.TotSenders; i++ {
-        uuids[ i ] = uuid.New( ).String( )
+    azSvcBus.uuids = make( [ ]string, uuidsLen )
+    for i := 0; i < uuidsLen; i++ {
+        azSvcBus.uuids[ i ] = uuid.New( ).String( )
     }
+
+    azSvcBus.stats.SetIds( azSvcBus.uuids )
+    azSvcBus.stats.StartDumper( )
 
     if !azSvcBus.SenderOnly {
         azSvcBus.wg.Add( azSvcBus.TotReceivers )
         for i := 0; i < azSvcBus.TotReceivers; i++ {
-            go azSvcBus.receiveMessage( uuids[ i ] )
+            go azSvcBus.receiveMessage( i )
         }
     }
 
     if !azSvcBus.ReceiverOnly {
         azSvcBus.wg.Add( azSvcBus.TotSenders )
         for i := 0; i < azSvcBus.TotSenders; i++ {
-            go azSvcBus.sendMessage( uuids[ i ] )
+            go azSvcBus.sendMessage( i )
         }
     }
 
     azSvcBus.wg.Wait( )
+    azSvcBus.stats.StopDumper( )
 }
 
-func ( azSvcBus *AzSvcBus )sendMessage( id string ) {
+func ( azSvcBus *AzSvcBus )sendMessage( idx int ) {
+    id := azSvcBus.uuids[ idx ]
+
     sender, err := azSvcBus.client.NewSender( azSvcBus.TopicName, nil )
     if err != nil {
         glog.Errorf( "%v: Failed to create sender, error = %v", id, err )
@@ -98,7 +110,7 @@ func ( azSvcBus *AzSvcBus )sendMessage( id string ) {
     }
 
     for {
-        msg, err := azSvcBus.msgCtx.GetMsg( )
+        msg, err := azSvcBus.msgs.GetMsg( )
         if err != nil {
             glog.Errorf( "%v: Failed to get message, error = %v", id, err )
             break
@@ -118,7 +130,9 @@ func ( azSvcBus *AzSvcBus )sendMessage( id string ) {
     return
 }
 
-func ( azSvcBus *AzSvcBus )receiveMessage( id string ) {
+func ( azSvcBus *AzSvcBus )receiveMessage( idx int ) {
+    id := azSvcBus.uuids[ idx ]
+
     receiver, err := azSvcBus.client.NewReceiverForSubscription( azSvcBus.TopicName, azSvcBus.SubName, nil )
     if err != nil {
         glog.Errorf( "%v: Failed to create receiver, error = %v", id, err )
@@ -160,7 +174,7 @@ func ( azSvcBus *AzSvcBus )receiveMessage( id string ) {
                 break
             }
 
-            msgInst, err := azSvcBus.msgCtx.ParseMsg( msg )
+            msgInst, err := azSvcBus.msgs.ParseMsg( msg )
             if err != nil {
                 glog.Errorf( "%v: Failed to parse message, error = %v", id, err )
             }

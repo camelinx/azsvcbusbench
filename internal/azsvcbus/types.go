@@ -7,13 +7,22 @@ import (
 
     "github.com/Azure/azure-sdk-for-go/sdk/messaging/azservicebus"
     "github.com/azsvcbusbench/internal/helpers"
+    "github.com/azsvcbusbench/internal/stats"
 )
 
 type azSvcBusCtx struct {
     client             *azservicebus.Client
+
     senderCtx           context.Context
     receiverCtx         context.Context
-    msgCtx             *helpers.MsgCtx
+
+    uuids            [ ]string
+
+    stats              *stats.Stats
+    statsCtx            context.Context
+
+    msgs               *helpers.Msgs
+
     wg                 *sync.WaitGroup
 }
 
