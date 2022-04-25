@@ -12,6 +12,10 @@ import (
     "github.com/azsvcbusbench/internal/stats"
 )
 
+const (
+    idxPropName = "senderIdx"
+)
+
 var (
     msgContentType = "application/json"
 )
@@ -103,9 +107,13 @@ func ( azSvcBus *AzSvcBus )sendMessage( idx int ) {
         azSvcBus.wg.Done( )
     }( )
 
+    appProps := map[ string ]interface{ }{
+        azSvcBus.PropName : id,
+        idxPropName       : idx,
+    }
+
     azsvcbusmsg := &azservicebus.Message{
-        MessageID               : &id,
-        ApplicationProperties   : map[ string ]interface{ }{ azSvcBus.PropName : id },
+        ApplicationProperties   : appProps,
         ContentType             : &msgContentType,
     }
 
@@ -123,6 +131,8 @@ func ( azSvcBus *AzSvcBus )sendMessage( idx int ) {
             glog.Errorf( "%v: Failed to send message, error = %v", id, err )
             break
         }
+
+        azSvcBus.stats.UpdateSenderStat( idx, 1 )
 
         time.Sleep( azSvcBus.SendInterval )
     }
@@ -179,7 +189,16 @@ func ( azSvcBus *AzSvcBus )receiveMessage( idx int ) {
                 glog.Errorf( "%v: Failed to parse message, error = %v", id, err )
             }
 
-            glog.Infof( "%v: %v %v %v %v %v", id, msgInst.Current, msgInst.Delta, msgInst.ClientIp, msgInst.TimeStamp, helpers.GetCurTimeStamp( ) ) 
+            if senderIdxPropVal, exists := message.ApplicationProperties[ idxPropName ]; exists {
+                senderIdx, ok := senderIdxPropVal.( int )
+                if ok {
+                    azSvcBus.stats.UpdateReceiverStat( idx, senderIdx, 1, uint64( helpers.GetCurTimeStamp( ) - msgInst.TimeStamp ) )
+                } else {
+                    glog.Errorf( "%v: Invalid sender index in message application properties", id )
+                }
+            } else {
+                glog.Errorf( "%v: Did not find sender index in message application properties", id )
+            }
         }
 
         time.Sleep( azSvcBus.ReceiveInterval )
