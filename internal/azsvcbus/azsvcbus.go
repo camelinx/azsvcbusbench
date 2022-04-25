@@ -190,7 +190,7 @@ func ( azSvcBus *AzSvcBus )receiveMessage( idx int ) {
             if senderIdxPropVal, exists := message.ApplicationProperties[ idxPropName ]; exists {
                 senderIdx, ok := senderIdxPropVal.( int64 )
                 if ok {
-                    azSvcBus.stats.UpdateReceiverStat( idx, int( senderIdx ), 1, uint64( helpers.GetCurTimeStamp( ) - msgInst.TimeStamp ) )
+                    azSvcBus.stats.UpdateReceiverStat( idx, int( senderIdx ), 1, uint64( msgInst.GetLatency( ) ) )
                 } else {
                     glog.Errorf( "%v: Invalid sender index in message application properties", id )
                 }

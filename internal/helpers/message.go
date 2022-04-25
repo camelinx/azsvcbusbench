@@ -112,6 +112,15 @@ func ( msgs *Msgs )ParseMsg( msg [ ]byte )( msgInst *Msg, err error ) {
     return nil, fmt.Errorf( "failed to parse message" )
 }
 
+func ( msg *Msg )GetLatency( )( latency int64 ) {
+    curTimeStamp := GetCurTimeStamp( )
+    if msg.TimeStamp <= curTimeStamp {
+        return curTimeStamp - msg.TimeStamp
+    }
+
+    return 0
+}
+
 func jsonMsgTypeGenerator( msgInst *Msg )( msg [ ]byte, err error ) {
     if nil == msgInst {
         return nil, fmt.Errorf( "message not set" )
