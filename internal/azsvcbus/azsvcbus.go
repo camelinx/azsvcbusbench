@@ -165,7 +165,7 @@ func ( azSvcBus *AzSvcBus )receiveMessage( id string ) {
                 glog.Errorf( "%v: Failed to parse message, error = %v", id, err )
             }
 
-            glog.Infof( "%v: %v %v %v %v %v", msgInst.Current, msgInst.Delta, msgInst.ClientIp, msgInst.TimeStamp, helpers.GetCurTimeStamp( ) ) 
+            glog.Infof( "%v: %v %v %v %v %v", id, msgInst.Current, msgInst.Delta, msgInst.ClientIp, msgInst.TimeStamp, helpers.GetCurTimeStamp( ) ) 
         }
 
         time.Sleep( azSvcBus.ReceiveInterval )
