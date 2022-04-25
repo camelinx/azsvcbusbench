@@ -13,12 +13,11 @@ import (
 func NewStats( ids [ ]string, ctx context.Context )( stats *Stats ) {
     stats = &Stats{
         count  :    uint64( len( ids ) ),
-        ctx    :    ctx,
         wg     :    &sync.WaitGroup{ },
     }
 
-    stats.ids   = make( [ ]string, stats.count ) 
-    stats.elems = make( [ ]statsElem, stats.count )
+    stats.SetIds( ids )
+    stats.SetCtx( ctx )
 
     return stats
 }
@@ -31,6 +30,11 @@ func ( stats *Stats )SetIds( ids [ ]string )( err error ) {
     stats.count = uint64( len( ids ) )
     stats.ids   = make( [ ]string, stats.count )
     copy( stats.ids, ids )
+
+    stats.elems = make( [ ]statsElem, stats.count )
+    for i, _ := range stats.elems {
+        stats.elems[ i ].rcvdById = make( [ ]uint64, stats.count )
+    }
 
     return nil
 }
@@ -78,7 +82,10 @@ func ( stats *Stats )dumpStats( ) {
 
 func ( stats *Stats )dump( byId bool ) {
     for i, v := range stats.elems {
-        avgLatency := v.latency / v.rcvd
+        avgLatency := 0
+        if v.rcvd > 0 {
+            avgLatency = v.latency / v.rcvd
+        }
 
         glog.Infof( "%v: Sent %v Received %v Average Latency %v", stats.ids[ i ], v.sent, v.rcvd, avgLatency )
 
