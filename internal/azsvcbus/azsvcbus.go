@@ -102,7 +102,6 @@ func ( azSvcBus *AzSvcBus )sendMessage( idx int ) {
     }
 
     defer func( ) {
-        glog.Infof( "%v: Sender done", id )
         sender.Close( azSvcBus.senderCtx )
         azSvcBus.wg.Done( )
     }( )
@@ -151,7 +150,6 @@ func ( azSvcBus *AzSvcBus )receiveMessage( idx int ) {
     }
 
     defer func( ) {
-        glog.Infof( "%v: Receiver done", id )
         receiver.Close( azSvcBus.receiverCtx )
         azSvcBus.wg.Done( )
     }( )
@@ -173,7 +171,6 @@ func ( azSvcBus *AzSvcBus )receiveMessage( idx int ) {
             if exists {
                 sndid, ok := propVal.( string )
                 if ok && id == sndid {
-                    glog.Infof( "%v: Ignoring message from self", id )
                     continue
                 }
             }
