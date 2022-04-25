@@ -82,7 +82,7 @@ func ( stats *Stats )dumpStats( ) {
 
 func ( stats *Stats )dump( byId bool ) {
     for i, v := range stats.elems {
-        avgLatency := 0
+        avgLatency := uint64( 0 )
         if v.rcvd > 0 {
             avgLatency = v.latency / v.rcvd
         }
