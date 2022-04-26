@@ -76,7 +76,7 @@ func validateClassLoopback( sip string )( err error ) {
 func testNewIpv4Generator( t *testing.T )( ipv4Gen *Ipv4Gen ) {
     ipv4Gen = NewIpv4Generator( )
     if nil == ipv4Gen {
-        t.Errorf( "NewIpv4Generator - failed to initialize" )
+        t.Fatalf( "NewIpv4Generator - failed to initialize" )
     }
 
     return ipv4Gen
@@ -87,18 +87,18 @@ func TestInitIpv4BlockFromReader( t *testing.T ) {
     strReader := strings.NewReader( ipv4ReaderStr )
     err       := ipv4Gen.InitIpv4BlockFromReader( strReader )
     if err != nil || !ipv4Gen.Initialized {
-        t.Errorf( "InitIpv4BlockFromReader - failed to initialize from reader" )
+        t.Fatalf( "InitIpv4BlockFromReader - failed to initialize from reader" )
     }
 
     err = ipv4Gen.InitIpv4Block( ipv4GenMagicNum, Ipv4AddrClassAny )
     if err != nil || !ipv4Gen.Initialized {
-        t.Errorf( "InitIpv4Block - failed to detect earlier initialization from reader" )
+        t.Fatalf( "InitIpv4Block - failed to detect earlier initialization from reader" )
     }
 
     ipv4Gen = testNewIpv4Generator( t )
     err     = ipv4Gen.InitIpv4BlockFromReader( nil )
     if err == nil {
-        t.Errorf( "InitIpv4BlockFromReader - successfully initialized from nil reader" )
+        t.Fatalf( "InitIpv4BlockFromReader - successfully initialized from nil reader" )
     }
 }
 
@@ -106,37 +106,37 @@ func TestInitIpv4Block( t *testing.T ) {
     ipv4Gen := testNewIpv4Generator( t )
     err     := ipv4Gen.InitIpv4Block( ipv4GenMagicNum, Ipv4AddrClassAny )
     if err != nil || !ipv4Gen.Initialized {
-        t.Errorf( "InitIpv4Block - failed to initialize from count" )
+        t.Fatalf( "InitIpv4Block - failed to initialize from count" )
     }
 
     strReader := strings.NewReader( ipv4ReaderStr )
     err        = ipv4Gen.InitIpv4BlockFromReader( strReader )
     if err != nil || !ipv4Gen.Initialized {
-        t.Errorf( "InitIpv4BlockFromReader - failed to detect earlier initialization from count" )
+        t.Fatalf( "InitIpv4BlockFromReader - failed to detect earlier initialization from count" )
     }
 
     ipv4Gen = testNewIpv4Generator( t )
     err     = ipv4Gen.InitIpv4Block( ipv4GenMagicNum, Ipv4AddrClassMin )
     if err == nil {
-        t.Errorf( "InitIpv4Block - successfully initialized for invalid address class - lower bound" )
+        t.Fatalf( "InitIpv4Block - successfully initialized for invalid address class - lower bound" )
     }
 
     err = ipv4Gen.InitIpv4Block( ipv4GenMagicNum, Ipv4AddrClassMax )
     if err == nil {
-        t.Errorf( "InitIpv4Block - successfully initialized for invalid address class - upper bound" )
+        t.Fatalf( "InitIpv4Block - successfully initialized for invalid address class - upper bound" )
     }
 
     for class := Ipv4AddrClassAny; class <= Ipv4AddrClassLoopback; class++ {
         ipv4Gen  = testNewIpv4Generator( t )
         err      = ipv4Gen.InitIpv4Block( ipv4GenMagicNum, class )
         if err != nil || !ipv4Gen.Initialized {
-            t.Errorf( "InitIpv4Block - failed to initialize from count" )
+            t.Fatalf( "InitIpv4Block - failed to initialize from count" )
         }
 
         for j := 0; j < ipv4GenMagicNum; j++ {
             err = ipv4Validators[ class ]( ipv4Gen.Block[ j ] )
             if err != nil {
-                t.Errorf( "GetIpv4Block - invalid ip address %v for count %v and class %v: error %v", ipv4Gen.Block[ j ], ipv4GenMagicNum, class, err )
+                t.Fatalf( "GetIpv4Block - invalid ip address %v for count %v and class %v: error %v", ipv4Gen.Block[ j ], ipv4GenMagicNum, class, err )
             }
         }
     }
@@ -147,18 +147,18 @@ func TestGetRandomIp( t *testing.T ) {
         ipv4Gen := testNewIpv4Generator( t )
         err     := ipv4Gen.InitIpv4Block( ipv4GenMagicNum, class )
         if err != nil || !ipv4Gen.Initialized {
-            t.Errorf( "InitIpv4Block - failed to initialize from count" )
+            t.Fatalf( "InitIpv4Block - failed to initialize from count" )
         }
 
         for j := 0; j < ipv4GenMagicNum; j++ {
             randomIp, err := ipv4Gen.GetRandomIp( )
             if err != nil {
-                t.Errorf( "GetRandomIp - error %v", err )
+                t.Fatalf( "GetRandomIp - error %v", err )
             }
 
             err = ipv4Validators[ class ]( randomIp )
             if err != nil {
-                t.Errorf( "GetRandomIp - invalid ip address %v for count %v and class %v: error %v", randomIp, ipv4GenMagicNum, class, err )
+                t.Fatalf( "GetRandomIp - invalid ip address %v for count %v and class %v: error %v", randomIp, ipv4GenMagicNum, class, err )
             }
         }
     }
@@ -173,18 +173,18 @@ func TestGetRandomIp( t *testing.T ) {
     ipv4Gen   := testNewIpv4Generator( t )
     err       := ipv4Gen.InitIpv4BlockFromReader( strReader )
     if err != nil || !ipv4Gen.Initialized {
-        t.Errorf( "InitIpv4BlockFromReader - failed to initialize from reader" )
+        t.Fatalf( "InitIpv4BlockFromReader - failed to initialize from reader" )
     }
 
     for j := 0; j < ipv4GenMagicNum; j++ {
         randomIp, err := ipv4Gen.GetRandomIp( )
         if err != nil {
-            t.Errorf( "GetRandomIp - error %v", err )
+            t.Fatalf( "GetRandomIp - error %v", err )
         }
 
         err = ipv4Validators[ Ipv4AddrClassAPrivate ]( randomIp )
         if err != nil {
-            t.Errorf( "GetRandomIp - invalid ip address %v from reader: error %v", randomIp, err )
+            t.Fatalf( "GetRandomIp - invalid ip address %v from reader: error %v", randomIp, err )
         }
     }
 }

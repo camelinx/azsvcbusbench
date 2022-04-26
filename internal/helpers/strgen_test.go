@@ -10,7 +10,7 @@ func TestGetRandomString( t *testing.T ) {
     rstrLen := rand.Intn( 256 )
     rstr    := GetRandomString( uint( rstrLen ) )
     if len( rstr ) != rstrLen {
-        t.Errorf( "GetRandomString - failed to return random string of length %v", rstrLen )
+        t.Fatalf( "GetRandomString - failed to return random string of length %v", rstrLen )
     }
 }
 
@@ -20,11 +20,11 @@ func TestGetRandomJsonString( t *testing.T ) {
         jsonStr, retLen := GetRandomJsonString( uint( jsonStrLen ) )
 
         if len( jsonStr ) != int( retLen ) || int( retLen ) < jsonStrLen {
-            t.Errorf( "GetRandomJsonString - json string is shorter than request length %v", jsonStrLen )
+            t.Fatalf( "GetRandomJsonString - json string is shorter than request length %v", jsonStrLen )
         }
 
         if !json.Valid( [ ]byte( jsonStr ) ) {
-            t.Errorf( "GetRandomJsonString - invalid json string returned" )
+            t.Fatalf( "GetRandomJsonString - invalid json string returned" )
             t.Logf( "%v", jsonStr )
         }
     }
