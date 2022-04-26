@@ -25,6 +25,8 @@ var (
     sndrOnly    = flag.Bool( "sender-only", false, "Enable sender only" )
     rcvrOnly    = flag.Bool( "receiver-only", false, "Enable receiver only" )
     statIntvl   = flag.Duration( "stats-dump-interval", 30 * time.Second, "Interval after statistics will be dumped" )
+    ipsFile     = flag.String( "ips-file", "", "File with list of ip addresses to use" )
+    idsFile     = flag.String( "ids-file", "", "File with list of ids to use" )
 )
 
 func main( ) {
@@ -61,6 +63,9 @@ func main( ) {
     setupDuration( &azsvcbusBench.SendInterval, sndIntvl, "AZSVCBUS_SEND_INTERVAL" )
     setupDuration( &azsvcbusBench.ReceiveInterval, rcvIntvl, "AZSVCBUS_RECEIVE_INTERVAL" )
     setupDuration( &azsvcbusBench.StatDumpInterval, statIntvl, "AZSVCBUS_STATS_DUMP_INTERVAL" )
+
+    setupString( &azsvcbusBench.IpsFile, ipsFile, "AZSVCBUS_IPS_FILE" )
+    setupString( &azsvcbusBench.IdsFile, idsFile, "AZSVCBUS_IDS_FILE" )
 
     glog.Infof( "Starting Azure Service Bus Bench test %+v", azsvcbusBench )
     azsvcbusBench.Start( )

@@ -4,9 +4,10 @@ import (
     "sync"
     "time"
     "context"
+    "os"
+    "fmt"
 
     "github.com/golang/glog"
-    "github.com/google/uuid"
     "github.com/Azure/azure-sdk-for-go/sdk/messaging/azservicebus"
     "github.com/azsvcbusbench/internal/helpers"
     "github.com/azsvcbusbench/internal/stats"
@@ -20,29 +21,80 @@ var (
     msgContentType = "application/json"
 )
 
-func NewAzSvcBus( )( azSvcBus *AzSvcBus ) {
-    azSvcBus = &AzSvcBus {
+func NewAzSvcBus( )( *AzSvcBus ) {
+    return &AzSvcBus {
         azSvcBusCtx : azSvcBusCtx {
             wg    : &sync.WaitGroup{ },
+            stats : stats.NewStats( nil, nil ),
         },
     }
+}
 
-    azSvcBus.stats = stats.NewStats( nil, nil )
+func ( azSvcBus *AzSvcBus )initMsgGen( )( err error ) {
+    var msgGen *helpers.MsgGen
 
-    msgs, err := helpers.InitMsgs( 64, helpers.Ipv4AddrClassAny, helpers.MsgTypeJson )
-    if err != nil {
-        glog.Errorf( "Failed to initialize message generator" )
-        return nil
+    if len( azSvcBus.IpsFile ) > 0 {
+        fh, err := os.Open( azSvcBus.IpsFile )
+        if err != nil {
+            glog.Fatalf( "failed to open file %v: error %v", azSvcBus.IpsFile, err )
+            return fmt.Errorf( "failed to open file %v: error %v", azSvcBus.IpsFile, err )
+        }
+
+        defer func( ) {
+            fh.Close( )
+        }( )
+
+        msgGen, err = helpers.InitMsgGen( fh, 0, helpers.Ipv4AddrClassAny, helpers.MsgTypeJson )
+    } else {
+        msgGen, err = helpers.InitMsgGen( nil, 64, helpers.Ipv4AddrClassAny, helpers.MsgTypeJson )
     }
-    azSvcBus.msgs = msgs
 
-    return azSvcBus
+    if err != nil {
+        glog.Fatalf( "failed to initialize message generator" )
+        return fmt.Errorf( "failed to initialize message generator" )
+    }
+
+    azSvcBus.msgGen = msgGen
+    return nil
+}
+
+func ( azSvcBus *AzSvcBus )initIdGen( )( err error ) {
+    idGen := helpers.NewIdGenerator( )
+
+    if len( azSvcBus.IdsFile ) > 0 {
+        fh, err := os.Open( azSvcBus.IdsFile )
+        if err != nil {
+            glog.Fatalf( "failed to open file %v: error %v", azSvcBus.IdsFile, err )
+            return fmt.Errorf( "failed to open file %v: error %v", azSvcBus.IdsFile, err )
+        }
+
+        defer func( ) {
+            fh.Close( )
+        }( )
+
+        err = idGen.InitIdBlockFromReader( fh )
+    } else {
+        uuidsLen := azSvcBus.TotSenders
+        if uuidsLen < azSvcBus.TotReceivers {
+            uuidsLen = azSvcBus.TotReceivers
+        }
+
+        err = idGen.InitIdBlock( uuidsLen )
+    }
+
+    if err != nil {
+        glog.Fatalf( "failed to initialize id generator" )
+        return fmt.Errorf( "failed to initialize id generator" )
+    }
+
+    azSvcBus.idGen = idGen
+    return nil
 }
 
 func ( azSvcBus *AzSvcBus )Start( ) {
     client, err := azservicebus.NewClientFromConnectionString( azSvcBus.ConnStr, nil )
     if err != nil {
-        glog.Errorf( "Failed to setup Azure Service Bus client %v", err )
+        glog.Fatalf( "failed to setup Azure Service Bus client %v", err )
         return
     }
 
@@ -58,19 +110,20 @@ func ( azSvcBus *AzSvcBus )Start( ) {
     azSvcBus.receiverCtx = ctx
     azSvcBus.statsCtx    = ctx
 
+    err = azSvcBus.initMsgGen( )
+    if err != nil {
+        glog.Fatalf( "failed to initialize message generator: error %v", err )
+        return
+    }
+
+    err = azSvcBus.initIdGen( )
+    if err != nil {
+        glog.Fatalf( "failed to initialize id generator: error %v", err )
+        return
+    }
+
     azSvcBus.stats.SetCtx( azSvcBus.statsCtx )
-
-    uuidsLen := azSvcBus.TotSenders
-    if uuidsLen < azSvcBus.TotReceivers {
-        uuidsLen = azSvcBus.TotReceivers
-    }
-
-    azSvcBus.uuids = make( [ ]string, uuidsLen )
-    for i := 0; i < uuidsLen; i++ {
-        azSvcBus.uuids[ i ] = uuid.New( ).String( )
-    }
-
-    azSvcBus.stats.SetIds( azSvcBus.uuids )
+    azSvcBus.stats.SetIds( azSvcBus.idGen.Block )
     azSvcBus.stats.SetStatsDumpInterval( azSvcBus.StatDumpInterval )
     azSvcBus.stats.StartDumper( )
 
@@ -93,7 +146,7 @@ func ( azSvcBus *AzSvcBus )Start( ) {
 }
 
 func ( azSvcBus *AzSvcBus )sendMessage( idx int ) {
-    id := azSvcBus.uuids[ idx ]
+    id := azSvcBus.idGen.Block[ idx ]
 
     sender, err := azSvcBus.client.NewSender( azSvcBus.TopicName, nil )
     if err != nil {
@@ -118,7 +171,7 @@ func ( azSvcBus *AzSvcBus )sendMessage( idx int ) {
     }
 
     for {
-        msg, err := azSvcBus.msgs.GetMsg( )
+        msg, err := azSvcBus.msgGen.GetMsg( )
         if err != nil {
             glog.Errorf( "%v: Failed to get message, error = %v", id, err )
             break
@@ -141,7 +194,7 @@ func ( azSvcBus *AzSvcBus )sendMessage( idx int ) {
 }
 
 func ( azSvcBus *AzSvcBus )receiveMessage( idx int ) {
-    id := azSvcBus.uuids[ idx ]
+    id := azSvcBus.idGen.Block[ idx ]
 
     receiver, err := azSvcBus.client.NewReceiverForSubscription( azSvcBus.TopicName, azSvcBus.SubName, nil )
     if err != nil {
@@ -182,7 +235,7 @@ func ( azSvcBus *AzSvcBus )receiveMessage( idx int ) {
                 break
             }
 
-            msgInst, err := azSvcBus.msgs.ParseMsg( msg )
+            msgInst, err := azSvcBus.msgGen.ParseMsg( msg )
             if err != nil {
                 glog.Errorf( "%v: Failed to parse message, error = %v", id, err )
             }

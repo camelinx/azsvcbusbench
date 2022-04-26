@@ -16,12 +16,11 @@ type azSvcBusCtx struct {
     senderCtx           context.Context
     receiverCtx         context.Context
 
-    uuids            [ ]string
-
     stats              *stats.Stats
     statsCtx            context.Context
 
-    msgs               *helpers.Msgs
+    msgGen             *helpers.MsgGen
+    idGen              *helpers.IdGen
 
     wg                 *sync.WaitGroup
 }
@@ -31,6 +30,9 @@ type AzSvcBus struct {
     TopicName           string
     SubName             string
     PropName            string
+
+    IpsFile             string
+    IdsFile             string
 
     TotSenders          int
     TotReceivers        int
