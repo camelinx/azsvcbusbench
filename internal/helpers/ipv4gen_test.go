@@ -10,6 +10,7 @@ import (
 const (
     ipv4GenMagicNum = 32
     ipv4ReaderBase  = "10.0.0."
+    ipv4ReaderStr   = "10.0.0.1\n10.0.0.2\n10.0.0.3"
 )
 
 type ipv4Validator func( string )( error )
@@ -83,7 +84,7 @@ func testNewIpv4Generator( t *testing.T )( ipv4Gen *Ipv4Gen ) {
 
 func TestInitIpv4BlockFromReader( t *testing.T ) {
     ipv4Gen   := testNewIpv4Generator( t )
-    strReader := strings.NewReader( "10.0.0.1\n10.0.0.2\n10.0.0.3" )
+    strReader := strings.NewReader( ipv4ReaderStr )
     err       := ipv4Gen.InitIpv4BlockFromReader( strReader )
     if err != nil || !ipv4Gen.Initialized {
         t.Errorf( "InitIpv4BlockFromReader - failed to initialize from reader" )
@@ -108,7 +109,7 @@ func TestInitIpv4Block( t *testing.T ) {
         t.Errorf( "InitIpv4Block - failed to initialize from count" )
     }
 
-    strReader := strings.NewReader( "10.0.0.1\n10.0.0.2\n10.0.0.3" )
+    strReader := strings.NewReader( ipv4ReaderStr )
     err        = ipv4Gen.InitIpv4BlockFromReader( strReader )
     if err != nil || !ipv4Gen.Initialized {
         t.Errorf( "InitIpv4BlockFromReader - failed to detect earlier initialization from count" )

@@ -7,23 +7,23 @@ import (
 )
 
 func TestInitMsgs( t *testing.T ) {
-    _, err := InitMsgs( nil, getRandomInt( 32 ), Ipv4AddrClassAny, MsgTypeJson )
+    _, err := InitMsgs( nil, getRandomInt( ipv4GenMagicNum ), Ipv4AddrClassAny, MsgTypeJson )
     if err != nil {
         t.Errorf( "InitMsgs - failed to initialize message context" )
     }
 
-    strReader := strings.NewReader( "10.0.0.1\n10.0.0.2\n10.0.0.3" )
+    strReader := strings.NewReader( ipv4ReaderStr )
     _, err = InitMsgs( strReader, 0, Ipv4AddrClassAny, MsgTypeJson )
     if err != nil {
         t.Errorf( "InitMsgs - failed to initialize message context from reader" )
     }
 
-    _, err = InitMsgs( nil, getRandomInt( 32 ), Ipv4AddrClassAny, MsgTypeMin )
+    _, err = InitMsgs( nil, getRandomInt( ipv4GenMagicNum ), Ipv4AddrClassAny, MsgTypeMin )
     if err == nil {
         t.Errorf( "InitMsgs - successfully initialized for invalid message type lower bound" )
     }
 
-    _, err = InitMsgs( nil, getRandomInt( 32 ), Ipv4AddrClassAny, MsgTypeMax )
+    _, err = InitMsgs( nil, getRandomInt( ipv4GenMagicNum ), Ipv4AddrClassAny, MsgTypeMax )
     if err == nil {
         t.Errorf( "InitMsgs - successfully initialized for invalid message type upper bound" )
     }
@@ -38,23 +38,23 @@ func TestInitMsgs( t *testing.T ) {
         t.Errorf( "InitMsgs - successfully initialized for negative ip count" )
     }
 
-    _, err = InitMsgs( nil, getRandomInt( 32 ), Ipv4AddrClassMin, MsgTypeJson )
+    _, err = InitMsgs( nil, getRandomInt( ipv4GenMagicNum ), Ipv4AddrClassMin, MsgTypeJson )
     if err == nil {
         t.Errorf( "InitMsgs - successfully initialized for invalid ip address class lower bound" )
     }
 
-    _, err = InitMsgs( nil, getRandomInt( 32 ), Ipv4AddrClassMax, MsgTypeJson )
+    _, err = InitMsgs( nil, getRandomInt( ipv4GenMagicNum ), Ipv4AddrClassMax, MsgTypeJson )
     if err == nil {
         t.Errorf( "InitMsgs - successfully initialized for invalid ip address class upper bound" )
     }
 
     for class := Ipv4AddrClassMin + 1; class < Ipv4AddrClassMax; class++ {
-        _, err = InitMsgs( nil, getRandomInt( 32 ), class, MsgTypeJson )
+        _, err = InitMsgs( nil, getRandomInt( ipv4GenMagicNum ), class, MsgTypeJson )
         if err != nil {
             t.Errorf( "InitMsgs - failed to initialize for valid ip address class %v", class )
         }
 
-        strReader = strings.NewReader( "10.0.0.1\n10.0.0.2\n10.0.0.3" )
+        strReader = strings.NewReader( ipv4ReaderStr )
         _, err = InitMsgs( strReader, 0, class, MsgTypeJson )
         if err != nil {
             t.Errorf( "InitMsgs - failed to initialize from reader for valid ip address class %v", class )
@@ -63,14 +63,14 @@ func TestInitMsgs( t *testing.T ) {
 }
 
 func testInitMsgFromCount( )( msgs *Msgs, err error ) {
-    return InitMsgs( nil, getRandomInt( 32 ), Ipv4AddrClassAny, MsgTypeJson )
+    return InitMsgs( nil, getRandomInt( ipv4GenMagicNum ), Ipv4AddrClassAny, MsgTypeJson )
 }
 
 func testInitMsgFromReader( )( msgs *Msgs, err error ) {
     var ipStr string
 
-    for i := 1; i <= 32; i++ {
-        ipStr += "10.0.0." + fmt.Sprint( i ) + "\n"
+    for i := 1; i <= ipv4GenMagicNum; i++ {
+        ipStr += "ipv4ReaderBase" + fmt.Sprint( i ) + "\n"
     }
 
     strReader := strings.NewReader( ipStr )
@@ -79,7 +79,7 @@ func testInitMsgFromReader( )( msgs *Msgs, err error ) {
 }
 
 func ( msgs *Msgs )test( t *testing.T ) {
-    for i := 0; i < 32; i++ {
+    for i := 0; i < ipv4GenMagicNum; i++ {
         msg, err := msgs.GetMsg( )
         if err != nil {
             t.Errorf( "GetMsg - failed to get message" )
