@@ -3,6 +3,7 @@ package helpers
 import (
     "fmt"
     "time"
+    "io"
     "encoding/json"
     "math/rand"
 )
@@ -28,9 +29,7 @@ var msgTypeParsers = [ ]msgTypeParser {
 }
 
 type Msgs struct {
-    ips       [ ]string
-    ipsCount     int
-    ipClass      Ipv4AddrClass
+    ipv4Gen     *Ipv4Gen
     msgType      MsgType
 }
 
@@ -63,9 +62,9 @@ func getCounters( )( int, int ) {
     return getRandomInt( 4096 ), getRandomInt( 64 )
 }
 
-func InitMsgs( ipCount int, ipClass Ipv4AddrClass, msgType MsgType )( msgs *Msgs, err error ) {
-    if 0 >= ipCount {
-        return nil, fmt.Errorf( "ip address count is invalid" )
+func InitMsgs( file io.Reader, ipCount int, ipClass Ipv4AddrClass, msgType MsgType )( msgs *Msgs, err error ) {
+    if ipCount <= 0 && file == nil {
+        return nil, fmt.Errorf( "ip address count and reader are invalid" )
     }
 
     if msgType <= MsgTypeMin || msgType >= MsgTypeMax {
@@ -73,12 +72,17 @@ func InitMsgs( ipCount int, ipClass Ipv4AddrClass, msgType MsgType )( msgs *Msgs
     }
 
     msgs = &Msgs {
-        ipClass  :  ipClass,
         msgType  :  msgType,
-        ipsCount :  ipCount,
     }
 
-    msgs.ips, err = GetIpv4Block( msgs.ipsCount, msgs.ipClass )
+    msgs.ipv4Gen = NewIpv4Generator( )
+
+    if file != nil {
+        err = msgs.ipv4Gen.InitIpv4BlockFromReader( file )
+    } else {
+        err = msgs.ipv4Gen.InitIpv4Block( ipCount, ipClass )
+    }
+
     if err != nil {
         return nil, err
     }
@@ -95,7 +99,10 @@ func ( msgs *Msgs )GetMsg( )( msg [ ]byte, err error ) {
         TimeStamp   :   GetCurTimeStamp( ),
     }
 
-    msgInst.ClientIp = msgs.ips[ rand.Intn( msgs.ipsCount ) ]
+    msgInst.ClientIp, err = msgs.ipv4Gen.GetRandomIp( )
+    if err != nil {
+        return nil, err
+    }
 
     if msgs.msgType > MsgTypeMin && msgs.msgType < MsgTypeMax {
         return msgTypeGenerators[ msgs.msgType ]( msgInst )
