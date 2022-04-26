@@ -9,6 +9,7 @@ import (
 
 const (
     ipv4GenMagicNum = 32
+    ipv4ReaderBase  = "10.0.0."
 )
 
 type ipv4Validator func( string )( error )
@@ -136,6 +137,53 @@ func TestInitIpv4Block( t *testing.T ) {
             if err != nil {
                 t.Errorf( "GetIpv4Block - invalid ip address %v for count %v and class %v: error %v", ipv4Gen.Block[ j ], ipv4GenMagicNum, class, err )
             }
+        }
+    }
+}
+
+func TestGetRandomIp( t *testing.T ) {
+    for class := Ipv4AddrClassAny; class <= Ipv4AddrClassLoopback; class++ {
+        ipv4Gen := testNewIpv4Generator( t )
+        err     := ipv4Gen.InitIpv4Block( ipv4GenMagicNum, class )
+        if err != nil || !ipv4Gen.Initialized {
+            t.Errorf( "InitIpv4Block - failed to initialize from count" )
+        }
+
+        for j := 0; j < ipv4GenMagicNum; j++ {
+            randomIp, err := ipv4Gen.GetRandomIp( )
+            if err != nil {
+                t.Errorf( "GetRandomIp - error %v", err )
+            }
+
+            err = ipv4Validators[ class ]( randomIp )
+            if err != nil {
+                t.Errorf( "GetRandomIp - invalid ip address %v for count %v and class %v: error %v", randomIp, ipv4GenMagicNum, class, err )
+            }
+        }
+    }
+
+    var ipStr string
+
+    for i := 1; i <= ipv4GenMagicNum; i++ {
+        ipStr += ipv4ReaderBase + fmt.Sprint( i ) + "\n"
+    }
+
+    strReader := strings.NewReader( ipStr )
+    ipv4Gen   := testNewIpv4Generator( t )
+    err       := ipv4Gen.InitIpv4BlockFromReader( strReader )
+    if err != nil || !ipv4Gen.Initialized {
+        t.Errorf( "InitIpv4BlockFromReader - failed to initialize from reader" )
+    }
+
+    for j := 0; j < ipv4GenMagicNum; j++ {
+        randomIp, err := ipv4Gen.GetRandomIp( )
+        if err != nil {
+            t.Errorf( "GetRandomIp - error %v", err )
+        }
+
+        err = ipv4Validators[ Ipv4AddrClassAPrivate ]( randomIp )
+        if err != nil {
+            t.Errorf( "GetRandomIp - invalid ip address %v from reader: error %v", randomIp, err )
         }
     }
 }
