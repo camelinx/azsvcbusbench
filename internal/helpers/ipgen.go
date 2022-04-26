@@ -2,6 +2,7 @@ package helpers
 
 import (
     "fmt"
+    "io"
     "math/rand"
 )
 
@@ -33,18 +34,70 @@ var ipv4AddrGenerators = [ ]ipv4AddrGenerator {
     Ipv4AddrClassLoopback    :    getLoopbackIpv4,
 }
 
-func GetIpv4Block( blockCount int, addrClass Ipv4AddrClass )( block [ ]string, err error ) {
-    if addrClass <= Ipv4AddrClassMin || addrClass >= Ipv4AddrClassMax {
-        return nil, fmt.Errorf( "invalid address type %v\n", addrClass )
+type Ipv4Gen struct {
+    Block        [ ]string
+    Count           int
+    Class           Ipv4AddrClass
+    Initialized     bool
+}
+
+func NewIpv4Generator( )( *Ipv4Gen ) {
+    return &Ipv4Gen{ }
+}
+
+func ( ipv4Gen *Ipv4Gen )InitIpv4BlockFromReader( file io.Reader )( err error ) {
+    if ipv4Gen.Initialized {
+        return nil
     }
+
+    cb := func( ipv4Addr string )( error ) {
+        ipv4Gen.Block = append( ipv4Gen.Block, ipv4Addr )
+        ipv4Gen.Count++
+        return nil
+    }
+
+    err = ProcessFile( file, cb )
+    if err != nil {
+        return err
+    }
+
+    ipv4Gen.Initialized = true
+    return nil
+}
+
+func ( ipv4Gen *Ipv4Gen )InitIpv4Block( blockCount int, addrClass Ipv4AddrClass )( err error ) {
+    if addrClass <= Ipv4AddrClassMin || addrClass >= Ipv4AddrClassMax {
+        return fmt.Errorf( "invalid address type %v\n", addrClass )
+    }
+
+    if ipv4Gen.Initialized {
+        return nil
+    }
+
+    ipv4Gen.Class = addrClass
+    ipv4Gen.Count = blockCount
+    ipv4Gen.Block = make( [ ]string, ipv4Gen.Count )
 
     ipv4AddrGeneratorHandler := ipv4AddrGenerators[ addrClass ]
     for i := 0; i < blockCount; i++ {
-        ipv4Addr, _ := ipv4AddrGeneratorHandler( )
-        block = append( block, ipv4Addr )
+        ipv4Addr, err := ipv4AddrGeneratorHandler( )
+        if err != nil {
+            return err
+        }
+
+        ipv4Gen.Block[ i ] = ipv4Addr
     }
 
-    return block, nil
+    ipv4Gen.Initialized = true
+    return nil
+}
+
+func ( ipv4Gen *Ipv4Gen )GetRandomIp( )( ipv4Addr string, err error ) {
+    if ipv4Gen.Initialized {
+        return ipv4Gen.Block[ rand.Intn( ipv4Gen.Count ) ], nil
+    }
+
+    return "", fmt.Errorf( "generator not initialized" )
 }
 
 func getAnyIpv4( )( string, error ) {
