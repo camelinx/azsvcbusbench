@@ -28,7 +28,7 @@ var msgTypeParsers = [ ]msgTypeParser {
     MsgTypeJson :   jsonMsgTypeParser,
 }
 
-type Msgs struct {
+type MsgGen struct {
     ipv4Gen     *Ipv4Gen
     msgType      MsgType
 }
@@ -62,7 +62,7 @@ func getCounters( )( int, int ) {
     return getRandomInt( 4096 ), getRandomInt( 64 )
 }
 
-func InitMsgs( file io.Reader, ipCount int, ipClass Ipv4AddrClass, msgType MsgType )( msgs *Msgs, err error ) {
+func InitMsgGen( file io.Reader, ipCount int, ipClass Ipv4AddrClass, msgType MsgType )( msgGen *MsgGen, err error ) {
     if ipCount <= 0 && file == nil {
         return nil, fmt.Errorf( "ip address count and reader are invalid" )
     }
@@ -71,26 +71,26 @@ func InitMsgs( file io.Reader, ipCount int, ipClass Ipv4AddrClass, msgType MsgTy
         return nil, fmt.Errorf( "invalid message type" )
     }
 
-    msgs = &Msgs {
+    msgGen = &MsgGen {
         msgType  :  msgType,
     }
 
-    msgs.ipv4Gen = NewIpv4Generator( )
+    msgGen.ipv4Gen = NewIpv4Generator( )
 
     if file != nil {
-        err = msgs.ipv4Gen.InitIpv4BlockFromReader( file )
+        err = msgGen.ipv4Gen.InitIpv4BlockFromReader( file )
     } else {
-        err = msgs.ipv4Gen.InitIpv4Block( ipCount, ipClass )
+        err = msgGen.ipv4Gen.InitIpv4Block( ipCount, ipClass )
     }
 
     if err != nil {
         return nil, err
     }
 
-    return msgs, nil
+    return msgGen, nil
 }
 
-func ( msgs *Msgs )GetMsg( )( msg [ ]byte, err error ) {
+func ( msgGen *MsgGen )GetMsg( )( msg [ ]byte, err error ) {
     current, delta := getCounters( )
 
     msgInst := &Msg {
@@ -99,21 +99,21 @@ func ( msgs *Msgs )GetMsg( )( msg [ ]byte, err error ) {
         TimeStamp   :   GetCurTimeStamp( ),
     }
 
-    msgInst.ClientIp, err = msgs.ipv4Gen.GetRandomIp( )
+    msgInst.ClientIp, err = msgGen.ipv4Gen.GetRandomIp( )
     if err != nil {
         return nil, err
     }
 
-    if msgs.msgType > MsgTypeMin && msgs.msgType < MsgTypeMax {
-        return msgTypeGenerators[ msgs.msgType ]( msgInst )
+    if msgGen.msgType > MsgTypeMin && msgGen.msgType < MsgTypeMax {
+        return msgTypeGenerators[ msgGen.msgType ]( msgInst )
     }
 
     return nil, fmt.Errorf( "failed to generate message" )
 }
 
-func ( msgs *Msgs )ParseMsg( msg [ ]byte )( msgInst *Msg, err error ) {
-    if msgs.msgType > MsgTypeMin && msgs.msgType < MsgTypeMax {
-        return msgTypeParsers[ msgs.msgType ]( msg )
+func ( msgGen *MsgGen )ParseMsg( msg [ ]byte )( msgInst *Msg, err error ) {
+    if msgGen.msgType > MsgTypeMin && msgGen.msgType < MsgTypeMax {
+        return msgTypeParsers[ msgGen.msgType ]( msg )
     }
 
     return nil, fmt.Errorf( "failed to parse message" )
