@@ -110,37 +110,27 @@ func ( azSvcBus *AzSvcBus )Start( ) {
     azSvcBus.receiverCtx = ctx
     azSvcBus.statsCtx    = ctx
 
-    glog.Infof( "Initializing message generator" )
     err = azSvcBus.initMsgGen( )
     if err != nil {
         glog.Fatalf( "failed to initialize message generator: error %v", err )
         return
     }
 
-    glog.Infof( "Initializing ID generator" )
     err = azSvcBus.initIdGen( )
     if err != nil {
         glog.Fatalf( "failed to initialize id generator: error %v", err )
         return
     }
 
-    glog.Infof( "Starting warmup" )
-    err = azSvcBus.startWarmup( )
-    if err != nil {
-        glog.Fatalf( "warmup failed: error %v", err )
-        return
-    }
-
-    glog.Infof( "Setting up stats" )
     azSvcBus.stats.SetCtx( azSvcBus.statsCtx )
     azSvcBus.stats.SetIds( azSvcBus.idGen.Block )
     azSvcBus.stats.SetStatsDumpInterval( azSvcBus.StatDumpInterval )
     azSvcBus.stats.StartDumper( )
 
     if !azSvcBus.SenderOnly {
+        azSvcBus.receivers = make( [ ]*azservicebus.Receiver, azSvcBus.TotReceivers )
         azSvcBus.wg.Add( azSvcBus.TotReceivers )
         for i := 0; i < azSvcBus.TotReceivers; i++ {
-            glog.Infof( "Starting receiver %v", i )
             go func( idx int ) {
                 defer azSvcBus.wg.Done( )
                 azSvcBus.startReceiver( idx )
@@ -149,9 +139,9 @@ func ( azSvcBus *AzSvcBus )Start( ) {
     }
 
     if !azSvcBus.ReceiverOnly {
+        azSvcBus.senders = make( [ ]*azservicebus.Sender, azSvcBus.TotSenders )
         azSvcBus.wg.Add( azSvcBus.TotSenders )
         for i := 0; i < azSvcBus.TotSenders; i++ {
-            glog.Infof( "Starting sender %v", i )
             go func( idx int ) {
                 defer azSvcBus.wg.Done( )
                 azSvcBus.startSender( idx )
@@ -161,40 +151,6 @@ func ( azSvcBus *AzSvcBus )Start( ) {
 
     azSvcBus.wg.Wait( )
     azSvcBus.stats.StopDumper( )
-    glog.Infof( "Done" )
-}
-
-func ( azSvcBus *AzSvcBus )startWarmup( )( err error ) {
-    err = azSvcBus.newSender( 0 )
-    if err != nil {
-        return err
-    }
-
-    err = azSvcBus.newReceiver( 0 )
-    if err != nil {
-        return err
-    }
-
-    for i := 0; i < 5; i++ {
-        err = azSvcBus.sendMessage( 0 )
-        if err != nil {
-            return err
-        }
-    }
-
-    cb := func( idx int, message *azservicebus.ReceivedMessage )( err error ) {
-        // Do nothing. This is just a warm up
-        return nil
-    }
-
-    for i := 0; i < 5; i++ {
-        err = azSvcBus.receiveMessages( 0, cb )
-        if err != nil {
-            return err
-        }
-    }
-
-    return nil
 }
 
 func ( azSvcBus *AzSvcBus )sendMessage( idx int )( err error ) {
@@ -218,7 +174,7 @@ func ( azSvcBus *AzSvcBus )sendMessage( idx int )( err error ) {
 
     azsvcbusmsg.Body = msg
 
-    err = azSvcBus.sender.SendMessage( azSvcBus.senderCtx, azsvcbusmsg, nil )
+    err = azSvcBus.senders[ idx ].SendMessage( azSvcBus.senderCtx, azsvcbusmsg, nil )
     if err != nil {
         glog.Errorf( "%v: Failed to send message, error = %v", id, err )
         return err
@@ -228,7 +184,7 @@ func ( azSvcBus *AzSvcBus )sendMessage( idx int )( err error ) {
 }
 
 func ( azSvcBus *AzSvcBus )newSender( idx int )( err error ) {
-    if azSvcBus.sender == nil {
+    if azSvcBus.senders[ idx ] == nil {
         id := azSvcBus.idGen.Block[ idx ]
 
         azSvcBusSender, err := azSvcBus.client.NewSender( azSvcBus.TopicName, nil )
@@ -237,16 +193,18 @@ func ( azSvcBus *AzSvcBus )newSender( idx int )( err error ) {
             return err
         }
 
-        glog.Infof( "Initialized sender" )
-        azSvcBus.sender = azSvcBusSender
+        azSvcBus.senders[ idx ] = azSvcBusSender
     }
 
     return nil
 }
 
 func ( azSvcBus *AzSvcBus )closeSender( idx int )( err error ) {
-    azSvcBus.sender.Close( azSvcBus.senderCtx )
-    azSvcBus.sender = nil
+    if azSvcBus.senders[ idx ] != nil {
+        azSvcBus.senders[ idx ].Close( azSvcBus.senderCtx )
+        azSvcBus.senders[ idx ] = nil
+    }
+
     return nil
 }
 
@@ -278,7 +236,7 @@ type azSvcMsgCb func( idx int, message *azservicebus.ReceivedMessage )( err erro
 func ( azSvcBus *AzSvcBus )receiveMessages( idx int, cb azSvcMsgCb )( err error ) {
     id := azSvcBus.idGen.Block[ idx ]
 
-    messages, err := azSvcBus.receiver.PeekMessages( azSvcBus.receiverCtx, 1, nil )
+    messages, err := azSvcBus.receivers[ idx ].PeekMessages( azSvcBus.receiverCtx, 1, nil )
     if err != nil {
         glog.Errorf( "%v: Failed to receive messages, error = %v", id, err )
         return err
@@ -341,7 +299,7 @@ func ( azSvcBus *AzSvcBus )receivedMessageCallback( idx int, message *azserviceb
 }
 
 func ( azSvcBus *AzSvcBus )newReceiver( idx int )( err error ) {
-    if azSvcBus.receiver == nil {
+    if azSvcBus.receivers[ idx ] == nil {
         id := azSvcBus.idGen.Block[ idx ]
 
         azSvcBusReceiver, err := azSvcBus.client.NewReceiverForSubscription( azSvcBus.TopicName, azSvcBus.SubName, nil )
@@ -350,16 +308,18 @@ func ( azSvcBus *AzSvcBus )newReceiver( idx int )( err error ) {
             return err
         }
 
-        glog.Infof( "Initialized receiver" )
-        azSvcBus.receiver = azSvcBusReceiver
+        azSvcBus.receivers[ idx ] = azSvcBusReceiver
     }
 
     return nil
 }
 
 func ( azSvcBus *AzSvcBus )closeReceiver( idx int )( err error ) {
-    azSvcBus.receiver.Close( azSvcBus.receiverCtx )
-    azSvcBus.receiver = nil
+    if azSvcBus.receivers[ idx ] != nil {
+        azSvcBus.receivers[ idx ].Close( azSvcBus.receiverCtx )
+        azSvcBus.receivers[ idx ] = nil
+    }
+
     return nil
 }
 

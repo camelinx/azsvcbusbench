@@ -12,8 +12,8 @@ import (
 
 type azSvcBusCtx struct {
     client             *azservicebus.Client
-    sender             *azservicebus.Sender
-    receiver           *azservicebus.Receiver
+    senders         [ ]*azservicebus.Sender
+    receivers       [ ]*azservicebus.Receiver
 
     senderCtx           context.Context
     receiverCtx         context.Context
