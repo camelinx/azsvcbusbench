@@ -110,24 +110,28 @@ func ( azSvcBus *AzSvcBus )Start( ) {
     azSvcBus.receiverCtx = ctx
     azSvcBus.statsCtx    = ctx
 
+    glog.Infof( "Initializing message generator" )
     err = azSvcBus.initMsgGen( )
     if err != nil {
         glog.Fatalf( "failed to initialize message generator: error %v", err )
         return
     }
 
+    glog.Infof( "Initializing ID generator" )
     err = azSvcBus.initIdGen( )
     if err != nil {
         glog.Fatalf( "failed to initialize id generator: error %v", err )
         return
     }
 
+    glog.Infof( "Starting warmup" )
     err = azSvcBus.startWarmup( )
     if err != nil {
         glog.Fatalf( "warmup failed: error %v", err )
         return
     }
 
+    glog.Infof( "Setting up stats" )
     azSvcBus.stats.SetCtx( azSvcBus.statsCtx )
     azSvcBus.stats.SetIds( azSvcBus.idGen.Block )
     azSvcBus.stats.SetStatsDumpInterval( azSvcBus.StatDumpInterval )
@@ -136,6 +140,7 @@ func ( azSvcBus *AzSvcBus )Start( ) {
     if !azSvcBus.SenderOnly {
         azSvcBus.wg.Add( azSvcBus.TotReceivers )
         for i := 0; i < azSvcBus.TotReceivers; i++ {
+            glog.Infof( "Starting receiver %v", i )
             go func( ) {
                 defer azSvcBus.wg.Done( )
                 azSvcBus.startReceiver( i )
@@ -146,6 +151,7 @@ func ( azSvcBus *AzSvcBus )Start( ) {
     if !azSvcBus.ReceiverOnly {
         azSvcBus.wg.Add( azSvcBus.TotSenders )
         for i := 0; i < azSvcBus.TotSenders; i++ {
+            glog.Infof( "Starting sender %v", i )
             go func( ) {
                 defer azSvcBus.wg.Done( )
                 azSvcBus.startSender( i )
@@ -153,8 +159,10 @@ func ( azSvcBus *AzSvcBus )Start( ) {
         }
     }
 
+    glog.Infof( "Waiting to stop" )
     azSvcBus.wg.Wait( )
     azSvcBus.stats.StopDumper( )
+    glog.Infof( "Done" )
 }
 
 func ( azSvcBus *AzSvcBus )startWarmup( )( err error ) {
