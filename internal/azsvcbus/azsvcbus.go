@@ -141,10 +141,10 @@ func ( azSvcBus *AzSvcBus )Start( ) {
         azSvcBus.wg.Add( azSvcBus.TotReceivers )
         for i := 0; i < azSvcBus.TotReceivers; i++ {
             glog.Infof( "Starting receiver %v", i )
-            go func( ) {
+            go func( idx int ) {
                 defer azSvcBus.wg.Done( )
-                azSvcBus.startReceiver( i )
-            }( )
+                azSvcBus.startReceiver( idx )
+            }( i )
         }
     }
 
@@ -152,14 +152,13 @@ func ( azSvcBus *AzSvcBus )Start( ) {
         azSvcBus.wg.Add( azSvcBus.TotSenders )
         for i := 0; i < azSvcBus.TotSenders; i++ {
             glog.Infof( "Starting sender %v", i )
-            go func( ) {
+            go func( idx int ) {
                 defer azSvcBus.wg.Done( )
-                azSvcBus.startSender( i )
-            }( )
+                azSvcBus.startSender( idx )
+            }( i )
         }
     }
 
-    glog.Infof( "Waiting to stop" )
     azSvcBus.wg.Wait( )
     azSvcBus.stats.StopDumper( )
     glog.Infof( "Done" )
@@ -238,6 +237,7 @@ func ( azSvcBus *AzSvcBus )newSender( idx int )( err error ) {
             return err
         }
 
+        glog.Infof( "Initialized sender" )
         azSvcBus.sender = azSvcBusSender
     }
 
@@ -341,7 +341,7 @@ func ( azSvcBus *AzSvcBus )receivedMessageCallback( idx int, message *azserviceb
 }
 
 func ( azSvcBus *AzSvcBus )newReceiver( idx int )( err error ) {
-    if azSvcBus.receiver != nil {
+    if azSvcBus.receiver == nil {
         id := azSvcBus.idGen.Block[ idx ]
 
         azSvcBusReceiver, err := azSvcBus.client.NewReceiverForSubscription( azSvcBus.TopicName, azSvcBus.SubName, nil )
@@ -350,6 +350,7 @@ func ( azSvcBus *AzSvcBus )newReceiver( idx int )( err error ) {
             return err
         }
 
+        glog.Infof( "Initialized receiver" )
         azSvcBus.receiver = azSvcBusReceiver
     }
 
