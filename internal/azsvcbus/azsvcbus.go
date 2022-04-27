@@ -122,6 +122,12 @@ func ( azSvcBus *AzSvcBus )Start( ) {
         return
     }
 
+    err = azSvcBus.warmup( )
+    if err != nil {
+        glog.Fatalf( "warmup failed: error %v", err )
+        return
+    }
+
     azSvcBus.stats.SetCtx( azSvcBus.statsCtx )
     azSvcBus.stats.SetIds( azSvcBus.idGen.Block )
     azSvcBus.stats.SetStatsDumpInterval( azSvcBus.StatDumpInterval )
@@ -130,14 +136,20 @@ func ( azSvcBus *AzSvcBus )Start( ) {
     if !azSvcBus.SenderOnly {
         azSvcBus.wg.Add( azSvcBus.TotReceivers )
         for i := 0; i < azSvcBus.TotReceivers; i++ {
-            go azSvcBus.receiveMessage( i )
+            go func( ) {
+                defer azSvcBus.wg.Done( )
+                azSvcBus.startReceiver( i )
+            }( )
         }
     }
 
     if !azSvcBus.ReceiverOnly {
         azSvcBus.wg.Add( azSvcBus.TotSenders )
         for i := 0; i < azSvcBus.TotSenders; i++ {
-            go azSvcBus.sendMessage( i )
+            go func( ) {
+                defer azSvcBus.wg.Done( )
+                azSvcBus.startSender( i )
+            }( )
         }
     }
 
@@ -145,20 +157,41 @@ func ( azSvcBus *AzSvcBus )Start( ) {
     azSvcBus.stats.StopDumper( )
 }
 
-func ( azSvcBus *AzSvcBus )sendMessage( idx int ) {
-    id := azSvcBus.idGen.Block[ idx ]
-
-    sender, err := azSvcBus.client.NewSender( azSvcBus.TopicName, nil )
+func ( azSvcBus *AzSvcBus )warmup( )( err error ) {
+    err = azSvcBus.newSender( 0 )
     if err != nil {
-        glog.Errorf( "%v: Failed to create sender, error = %v", id, err )
-        azSvcBus.wg.Done( )
-        return
+        return err
     }
 
-    defer func( ) {
-        sender.Close( azSvcBus.senderCtx )
-        azSvcBus.wg.Done( )
-    }( )
+    err = azSvcBus.newReceiver( 0 )
+    if err != nil {
+        return err
+    }
+
+    for i := 0; i < 5; i++ {
+        err = azSvcBus.sendMessage( 0 )
+        if err != nil {
+            return err
+        }
+    }
+
+    cb := func( idx int, message *azservicebus.ReceivedMessage )( err error ) {
+        // Do nothing. This is just a warm up
+        return nil
+    }
+
+    for {
+        err = azSvcBus.receiveMessages( 0, cb )
+        if err != nil {
+            return err
+        }
+    }
+
+    return nil
+}
+
+func ( azSvcBus *AzSvcBus )sendMessage( idx int )( err error ) {
+    id := azSvcBus.idGen.Block[ idx ]
 
     appProps := map[ string ]interface{ }{
         azSvcBus.PropName : id,
@@ -170,86 +203,175 @@ func ( azSvcBus *AzSvcBus )sendMessage( idx int ) {
         ContentType             : &msgContentType,
     }
 
-    for {
-        msg, err := azSvcBus.msgGen.GetMsg( )
+    msg, err := azSvcBus.msgGen.GetMsg( )
+    if err != nil {
+        glog.Errorf( "%v: Failed to get message, error = %v", id, err )
+        return err
+    }
+
+    azsvcbusmsg.Body = msg
+
+    err = azSvcBus.sender.SendMessage( azSvcBus.senderCtx, azsvcbusmsg, nil )
+    if err != nil {
+        glog.Errorf( "%v: Failed to send message, error = %v", id, err )
+        return err
+    }
+
+    return nil
+}
+
+func ( azSvcBus *AzSvcBus )newSender( idx int )( err error ) {
+    if azSvcBus.sender == nil {
+        id := azSvcBus.idGen.Block[ idx ]
+
+        azSvcBusSender, err := azSvcBus.client.NewSender( azSvcBus.TopicName, nil )
         if err != nil {
-            glog.Errorf( "%v: Failed to get message, error = %v", id, err )
-            break
+            glog.Errorf( "%v: Failed to create sender, error = %v", id, err )
+            return err
         }
 
-        azsvcbusmsg.Body = msg
+        azSvcBus.sender = azSvcBusSender
+    }
 
-        err = sender.SendMessage( azSvcBus.senderCtx, azsvcbusmsg, nil )
+    return nil
+}
+
+func ( azSvcBus *AzSvcBus )closeSender( idx int )( err error ) {
+    azSvcBus.sender.Close( azSvcBus.senderCtx )
+    azSvcBus.sender = nil
+    return nil
+}
+
+func ( azSvcBus *AzSvcBus )startSender( idx int ) {
+    err := azSvcBus.newSender( idx )
+    if err != nil {
+        return
+    }
+
+    defer func( ) {
+        azSvcBus.closeSender( idx )
+    }( )
+
+    for {
+        err = azSvcBus.sendMessage( idx )
         if err != nil {
-            glog.Errorf( "%v: Failed to send message, error = %v", id, err )
-            break
+            return
         }
 
         azSvcBus.stats.UpdateSenderStat( idx, 1 )
-
         time.Sleep( azSvcBus.SendInterval )
     }
 
     return
 }
 
-func ( azSvcBus *AzSvcBus )receiveMessage( idx int ) {
+type azSvcMsgCb func( idx int, message *azservicebus.ReceivedMessage )( err error )
+
+func ( azSvcBus *AzSvcBus )receiveMessages( idx int, cb azSvcMsgCb )( err error ) {
     id := azSvcBus.idGen.Block[ idx ]
 
-    receiver, err := azSvcBus.client.NewReceiverForSubscription( azSvcBus.TopicName, azSvcBus.SubName, nil )
+    messages, err := azSvcBus.receiver.PeekMessages( azSvcBus.receiverCtx, 1, nil )
     if err != nil {
-        glog.Errorf( "%v: Failed to create receiver, error = %v", id, err )
-        azSvcBus.wg.Done( )
+        glog.Errorf( "%v: Failed to receive messages, error = %v", id, err )
+        return err
+    }
+
+    for _, message := range messages {
+        if cb != nil {
+            err = cb( idx, message )
+            if err != nil {
+                return err
+            }
+        }
+    }
+
+    return nil
+}
+
+func ( azSvcBus *AzSvcBus )receivedMessageCallback( idx int, message *azservicebus.ReceivedMessage )( err error ) {
+    id := azSvcBus.idGen.Block[ idx ]
+
+    if message.ContentType != nil && *message.ContentType != msgContentType {
+        glog.Errorf( "%v: Ignoring message with unknown content type %v", id, message.ContentType )
+        return fmt.Errorf( "%v: Ignoring message with unknown content type %v", id, message.ContentType )
+    }
+
+    propVal, exists := message.ApplicationProperties[ azSvcBus.PropName ]
+    if exists {
+        sndid, ok := propVal.( string )
+        if ok && id == sndid {
+            return nil
+        }
+    }
+
+    msg, err := message.Body( )
+    if err != nil {
+        glog.Errorf( "%v: Failed to get received message body, error = %v", id, err )
+        return fmt.Errorf( "%v: Failed to get received message body, error = %v", id, err )
+    }
+
+    msgInst, err := azSvcBus.msgGen.ParseMsg( msg )
+    if err != nil {
+        glog.Errorf( "%v: Failed to parse message, error = %v", id, err )
+        return fmt.Errorf( "%v: Failed to parse message, error = %v", id, err )
+    }
+
+    if senderIdxPropVal, exists := message.ApplicationProperties[ idxPropName ]; exists {
+        senderIdx, ok := senderIdxPropVal.( int64 )
+        if ok {
+            azSvcBus.stats.UpdateReceiverStat( idx, int( senderIdx ), 1, uint64( msgInst.GetLatency( ) ) )
+        } else {
+            glog.Errorf( "%v: Invalid sender index in message application properties", id )
+            return fmt.Errorf( "%v: Invalid sender index in message application properties", id )
+        }
+    } else {
+        glog.Errorf( "%v: Did not find sender index in message application properties", id )
+        return fmt.Errorf( "%v: Did not find sender index in message application properties", id )
+    }
+
+    return nil
+}
+
+func ( azSvcBus *AzSvcBus )newReceiver( idx int )( err error ) {
+    if azSvcBus.receiver != nil {
+        id := azSvcBus.idGen.Block[ idx ]
+
+        azSvcBusReceiver, err := azSvcBus.client.NewReceiverForSubscription( azSvcBus.TopicName, azSvcBus.SubName, nil )
+        if err != nil {
+            glog.Errorf( "%v: Failed to create receiver, error = %v", id, err )
+            return err
+        }
+
+        azSvcBus.receiver = azSvcBusReceiver
+    }
+
+    return nil
+}
+
+func ( azSvcBus *AzSvcBus )closeReceiver( idx int )( err error ) {
+    azSvcBus.receiver.Close( azSvcBus.receiverCtx )
+    azSvcBus.receiver = nil
+    return nil
+}
+
+func ( azSvcBus *AzSvcBus )startReceiver( idx int ) {
+    err := azSvcBus.newReceiver( idx )
+    if err != nil {
         return
     }
 
     defer func( ) {
-        receiver.Close( azSvcBus.receiverCtx )
-        azSvcBus.wg.Done( )
+        azSvcBus.closeReceiver( idx )
     }( )
 
+    cb := func( idx int, message *azservicebus.ReceivedMessage )( err error ) {
+        return azSvcBus.receivedMessageCallback( idx, message )
+    }
+
     for {
-        messages, err := receiver.PeekMessages( azSvcBus.receiverCtx, 1, nil )
+        err = azSvcBus.receiveMessages( idx, cb )
         if err != nil {
-            glog.Errorf( "%v: Failed to receive messages, error = %v", id, err )
-            return
-        }
-
-        for _, message := range messages {
-            if message.ContentType != nil && *message.ContentType != msgContentType {
-                glog.Errorf( "%v: Ignoring message with unknown content type %v", id, message.ContentType )
-                continue
-            }
-
-            propVal, exists := message.ApplicationProperties[ azSvcBus.PropName ]
-            if exists {
-                sndid, ok := propVal.( string )
-                if ok && id == sndid {
-                    continue
-                }
-            }
-
-            msg, err := message.Body( )
-            if err != nil {
-                glog.Errorf( "%v: Failed to get received message body, error = %v", id, err )
-                break
-            }
-
-            msgInst, err := azSvcBus.msgGen.ParseMsg( msg )
-            if err != nil {
-                glog.Errorf( "%v: Failed to parse message, error = %v", id, err )
-            }
-
-            if senderIdxPropVal, exists := message.ApplicationProperties[ idxPropName ]; exists {
-                senderIdx, ok := senderIdxPropVal.( int64 )
-                if ok {
-                    azSvcBus.stats.UpdateReceiverStat( idx, int( senderIdx ), 1, uint64( msgInst.GetLatency( ) ) )
-                } else {
-                    glog.Errorf( "%v: Invalid sender index in message application properties", id )
-                }
-            } else {
-                glog.Errorf( "%v: Did not find sender index in message application properties", id )
-            }
+            break
         }
 
         time.Sleep( azSvcBus.ReceiveInterval )
