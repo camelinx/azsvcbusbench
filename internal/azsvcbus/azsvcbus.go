@@ -122,7 +122,7 @@ func ( azSvcBus *AzSvcBus )Start( ) {
         return
     }
 
-    err = azSvcBus.warmup( )
+    err = azSvcBus.startWarmup( )
     if err != nil {
         glog.Fatalf( "warmup failed: error %v", err )
         return
@@ -157,7 +157,7 @@ func ( azSvcBus *AzSvcBus )Start( ) {
     azSvcBus.stats.StopDumper( )
 }
 
-func ( azSvcBus *AzSvcBus )warmup( )( err error ) {
+func ( azSvcBus *AzSvcBus )startWarmup( )( err error ) {
     err = azSvcBus.newSender( 0 )
     if err != nil {
         return err
@@ -180,7 +180,7 @@ func ( azSvcBus *AzSvcBus )warmup( )( err error ) {
         return nil
     }
 
-    for {
+    for i := 0; i < 5; i++ {
         err = azSvcBus.receiveMessages( 0, cb )
         if err != nil {
             return err
