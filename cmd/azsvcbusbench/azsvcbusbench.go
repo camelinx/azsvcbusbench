@@ -21,6 +21,7 @@ var (
     totRcvrs    = flag.Int( "total-receivers", 2, "Total receivers" )
     sndIntvl    = flag.Duration( "send-interval", 5 * time.Second, "Interval between successive publish attempts" )
     rcvIntvl    = flag.Duration( "receive-interval", 1 * time.Second, "Interval between successive receive attempts" )
+    msgsPerRcv  = flag.Int( "messages-per-receive", 1, "Number of messages to get per receive call" )
     testTime    = flag.Duration( "test-duration", 5 * time.Minute, "Total test time" )
     sndrOnly    = flag.Bool( "sender-only", false, "Enable sender only" )
     rcvrOnly    = flag.Bool( "receiver-only", false, "Enable receiver only" )
@@ -55,6 +56,7 @@ func main( ) {
 
     setupInt( &azsvcbusBench.TotSenders, totSndrs, "AZSVCBUS_TOTAL_SENDERS" )
     setupInt( &azsvcbusBench.TotReceivers, totRcvrs, "AZSVCBUS_TOTAL_RECEIVERS" )
+    setupInt( &azsvcbusBench.MsgsPerReceive, msgsPerRcv, "AZSVCBUS_MSGS_PER_RECEIVE" )
 
     setupBool( &azsvcbusBench.SenderOnly, sndrOnly, "AZSVCBUS_SENDER_ONLY" )
     setupBool( &azsvcbusBench.ReceiverOnly, rcvrOnly, "AZSVCBUS_RECEIVER_ONLY" )

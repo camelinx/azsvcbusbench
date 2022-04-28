@@ -236,7 +236,7 @@ type azSvcMsgCb func( idx int, message *azservicebus.ReceivedMessage )( err erro
 func ( azSvcBus *AzSvcBus )receiveMessages( idx int, cb azSvcMsgCb )( err error ) {
     id := azSvcBus.idGen.Block[ idx ]
 
-    messages, err := azSvcBus.receivers[ idx ].PeekMessages( azSvcBus.receiverCtx, 1, nil )
+    messages, err := azSvcBus.receivers[ idx ].PeekMessages( azSvcBus.receiverCtx, azSvcBus.MsgsPerReceive, nil )
     if err != nil {
         glog.Errorf( "%v: Failed to receive messages, error = %v", id, err )
         return err

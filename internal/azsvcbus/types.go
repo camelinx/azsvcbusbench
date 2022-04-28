@@ -38,6 +38,7 @@ type AzSvcBus struct {
 
     TotSenders          int
     TotReceivers        int
+    MsgsPerReceive      int
 
     SenderOnly          bool
     ReceiverOnly        bool
