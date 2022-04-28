@@ -67,6 +67,12 @@ func ( stats *Stats )UpdateReceiverStat( idx, fromIdx int, incrBy, lIncrBy uint6
     atomic.AddUint64( &stats.elems[ idx ].rcvd, incrBy )
     atomic.AddUint64( &stats.elems[ idx ].rcvdById[ fromIdx ], incrBy )
     atomic.AddUint64( &stats.elems[ idx ].latency, lIncrBy )
+
+    // Not perfect but we can live with this
+    maxLatency := stats.elems[ idx ].maxLatency
+    if lIncrBy > maxLatency {
+        atomic.CompareAndSwapUint64( &stats.elems[ idx ].maxLatency, maxLatency, lIncrBy )
+    }
 }
 
 func ( stats *Stats )dumpStats( ) {
@@ -92,7 +98,7 @@ func ( stats *Stats )dump( byId bool ) {
             avgLatency = v.latency / v.rcvd
         }
 
-        glog.Infof( "%v: Sent %v Received %v Average Latency %v", stats.ids[ i ], v.sent, v.rcvd, avgLatency )
+        glog.Infof( "%v: Sent %v Received %v Average Latency %v Max Latency %v", stats.ids[ i ], v.sent, v.rcvd, avgLatency, v.maxLatency )
 
         if byId {
             for j, jv := range v.rcvdById {

@@ -11,6 +11,7 @@ type statsElem struct {
     rcvd             uint64 // Number of messages received
     rcvdById      [ ]uint64 // Received per id 
     latency          uint64 // Cumulative latency
+    maxLatency       uint64
 }
 
 type Stats struct {
