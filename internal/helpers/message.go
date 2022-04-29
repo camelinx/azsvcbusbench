@@ -11,18 +11,23 @@ import (
 type MsgType int
 
 const (
+    RandomCur   =   4096
+    RandomDelta =   64
+)
+
+const (
     MsgTypeMin      MsgType     = iota
     MsgTypeJson
     MsgTypeMax
 )
 
-type msgTypeGenerator func( *Msg )( [ ]byte, error )
+type msgTypeGenerator func( *Msgs )( [ ]byte, error )
 
 var msgTypeGenerators = [ ]msgTypeGenerator {
     MsgTypeJson :   jsonMsgTypeGenerator,
 }
 
-type msgTypeParser func( [ ]byte )( *Msg, error )
+type msgTypeParser func( [ ]byte )( *Msgs, error )
 
 var msgTypeParsers = [ ]msgTypeParser {
     MsgTypeJson :   jsonMsgTypeParser,
@@ -36,8 +41,13 @@ type MsgGen struct {
 type Msg struct {
     Current     int     `json:"current"`
     Delta       int     `json:"delta"`
-    TimeStamp   int64   `json:"ts"`
     ClientIp    string  `json:"clientip"`
+}
+
+type Msgs struct {
+    List     [ ]Msg     `json:"messages"`
+    Count       int     `json:"count"`
+    TimeStamp   int64   `json:"ts"`
 }
 
 func GetCurTimeStamp( )( int64 ) {
@@ -59,7 +69,7 @@ func getRandomInt( n int )( r int ) {
 }
 
 func getCounters( )( int, int ) {
-    return getRandomInt( 4096 ), getRandomInt( 64 )
+    return getRandomInt( RandomCur ), getRandomInt( RandomDelta )
 }
 
 func InitMsgGen( file io.Reader, ipCount int, ipClass Ipv4AddrClass, msgType MsgType )( msgGen *MsgGen, err error ) {
@@ -90,13 +100,12 @@ func InitMsgGen( file io.Reader, ipCount int, ipClass Ipv4AddrClass, msgType Msg
     return msgGen, nil
 }
 
-func ( msgGen *MsgGen )GetMsg( )( msg [ ]byte, err error ) {
+func ( msgGen *MsgGen )getMsgInst( )( msgInst *Msg, err error ) {
     current, delta := getCounters( )
 
-    msgInst := &Msg {
+    msgInst = &Msg {
         Current     :   current,
         Delta       :   delta,
-        TimeStamp   :   GetCurTimeStamp( ),
     }
 
     msgInst.ClientIp, err = msgGen.ipv4Gen.GetRandomIp( )
@@ -104,44 +113,83 @@ func ( msgGen *MsgGen )GetMsg( )( msg [ ]byte, err error ) {
         return nil, err
     }
 
+    return msgInst, nil
+}
+
+func ( msgGen *MsgGen )GetMsgN( n int )( msg [ ]byte, err error ) {
+    msgList := &Msgs {
+        Count       :   n,
+        List        :   make( [ ]Msg, n ),
+        TimeStamp   :   GetCurTimeStamp( ),
+    }
+
+    for i := 0; i < n; i++ {
+        msgInst, err := msgGen.getMsgInst( )
+        if err != nil {
+            return nil, err
+        }
+
+        msgList.List[ i ] = *msgInst
+    }
+
     if msgGen.msgType > MsgTypeMin && msgGen.msgType < MsgTypeMax {
-        return msgTypeGenerators[ msgGen.msgType ]( msgInst )
+        return msgTypeGenerators[ msgGen.msgType ]( msgList )
     }
 
     return nil, fmt.Errorf( "failed to generate message" )
 }
 
-func ( msgGen *MsgGen )ParseMsg( msg [ ]byte )( msgInst *Msg, err error ) {
+func ( msgGen *MsgGen )GetMsg( )( msg [ ]byte, err error ) {
+    return msgGen.GetMsgN( 1 )
+}
+
+type MsgCb func( *Msg )( error )
+
+func ( msgGen *MsgGen )ParseMsg( msg [ ]byte, cb MsgCb )( msgList *Msgs, err error ) {
     if msgGen.msgType > MsgTypeMin && msgGen.msgType < MsgTypeMax {
-        return msgTypeParsers[ msgGen.msgType ]( msg )
+        msgList, err = msgTypeParsers[ msgGen.msgType ]( msg )
+        if err != nil {
+            return nil, err
+        }
+
+        if cb != nil {
+            for _, msg := range msgList.List {
+                err = cb( &msg )
+                if err != nil {
+                    return nil, err
+                }
+            }
+        }
+
+        return msgList, nil
     }
 
     return nil, fmt.Errorf( "failed to parse message" )
 }
 
-func ( msg *Msg )GetLatency( )( latency int64 ) {
+func ( msgList *Msgs )GetLatency( )( latency int64 ) {
     curTimeStamp := GetCurTimeStamp( )
-    if msg.TimeStamp <= curTimeStamp {
-        return curTimeStamp - msg.TimeStamp
+    if msgList.TimeStamp <= curTimeStamp {
+        return curTimeStamp - msgList.TimeStamp
     }
 
     return 0
 }
 
-func jsonMsgTypeGenerator( msgInst *Msg )( msg [ ]byte, err error ) {
-    if nil == msgInst {
+func jsonMsgTypeGenerator( msgList *Msgs )( msg [ ]byte, err error ) {
+    if nil == msgList {
         return nil, fmt.Errorf( "message not set" )
     }
 
-    return json.Marshal( msgInst )
+    return json.Marshal( msgList )
 }
 
-func jsonMsgTypeParser( msg [ ]byte )( msgInst *Msg, err error ) {
+func jsonMsgTypeParser( msg [ ]byte )( msgList *Msgs, err error ) {
     if nil == msg || len( msg ) == 0 {
         return nil, fmt.Errorf( "invalid or empty message" )
     }
 
-    msgInst = &Msg{ }
-    err = json.Unmarshal( msg, msgInst )
-    return msgInst, err
+    msgList = &Msgs{ }
+    err = json.Unmarshal( msg, msgList )
+    return msgList, err
 }

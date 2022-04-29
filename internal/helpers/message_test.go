@@ -6,6 +6,10 @@ import (
     "strings"
 )
 
+const (
+    msgConst = 10
+)
+
 func TestInitMsgGen( t *testing.T ) {
     _, err := InitMsgGen( nil, getRandomInt( ipv4GenMagicNum ), Ipv4AddrClassAny, MsgTypeJson )
     if err != nil {
@@ -70,12 +74,29 @@ func testInitMsgFromReader( )( msgGen *MsgGen, err error ) {
     var ipStr string
 
     for i := 1; i <= ipv4GenMagicNum; i++ {
-        ipStr += "ipv4ReaderBase" + fmt.Sprint( i ) + "\n"
+        ipStr += ipv4ReaderBase + fmt.Sprint( i ) + "\n"
     }
 
     strReader := strings.NewReader( ipStr )
 
     return InitMsgGen( strReader, 0, Ipv4AddrClassAny, MsgTypeJson )
+}
+
+func msgCallback( msg *Msg )( err error ) {
+    if msg.Current < 0 || msg.Current > RandomCur {
+        return fmt.Errorf( "ParseMsg - invalid current field" )
+    }
+
+    if msg.Delta < 0 || msg.Delta > RandomDelta {
+        return fmt.Errorf( "ParseMsg - invalid delta field" )
+    }
+
+    err = validateClassAny( msg.ClientIp )
+    if err != nil {
+        return err
+    }
+
+    return nil
 }
 
 func ( msgGen *MsgGen )test( t *testing.T ) {
@@ -85,9 +106,19 @@ func ( msgGen *MsgGen )test( t *testing.T ) {
             t.Fatalf( "GetMsg - failed to get message" )
         }
 
-        _, err = msgGen.ParseMsg( msg )
+        _, err = msgGen.ParseMsg( msg, nil )
         if err != nil {
-            t.Fatalf( "GetMsg - invalid message %v", string( msg ) )
+            t.Fatalf( "ParseMsg - invalid message %v", string( msg ) )
+        }
+
+        msg, err = msgGen.GetMsgN( msgConst ) 
+        if err != nil {
+            t.Fatalf( "GetMsgN - failed to get message" )
+        }
+
+        _, err = msgGen.ParseMsg( msg, msgCallback )
+        if err != nil {
+            t.Fatalf( "ParseMsg - invalid message %v", string( msg ) )
         }
     }
 
@@ -96,9 +127,19 @@ func ( msgGen *MsgGen )test( t *testing.T ) {
         t.Fatalf( "GetMsg - failed to get message" )
     }
 
-    _, err = msgGen.ParseMsg( msg )
+    _, err = msgGen.ParseMsg( msg, msgCallback )
     if err != nil {
-        t.Fatalf( "GetMsg - invalid message %v", string( msg ) )
+        t.Fatalf( "ParseMsg - invalid message %v", string( msg ) )
+    }
+
+    msg, err = msgGen.GetMsgN( msgConst )
+    if err != nil {
+        t.Fatalf( "GetMsgN - failed to get message" )
+    }
+
+    _, err = msgGen.ParseMsg( msg, msgCallback )
+    if err != nil {
+        t.Fatalf( "ParseMsg - invalid message %v", string( msg ) )
     }
 
     msgGen.msgType = MsgTypeMin
@@ -107,7 +148,17 @@ func ( msgGen *MsgGen )test( t *testing.T ) {
         t.Fatalf( "GetMsg - succeeded for invalid message type lower bound" )
     }
 
-    _, err = msgGen.ParseMsg( msg )
+    _, err = msgGen.ParseMsg( msg, msgCallback )
+    if err == nil {
+        t.Fatalf( "ParseMsg - succeeded for invalid message type lower bound" )
+    }
+
+    _, err = msgGen.GetMsgN( msgConst )
+    if err == nil {
+        t.Fatalf( "GetMsgN - succeeded for invalid message type lower bound" )
+    }
+
+    _, err = msgGen.ParseMsg( msg, msgCallback )
     if err == nil {
         t.Fatalf( "ParseMsg - succeeded for invalid message type lower bound" )
     }
@@ -118,9 +169,19 @@ func ( msgGen *MsgGen )test( t *testing.T ) {
         t.Fatalf( "GetMsg - succeeded for invalid message type upper bound" )
     }
 
-    _, err = msgGen.ParseMsg( msg )
+    _, err = msgGen.ParseMsg( msg, msgCallback )
     if err == nil {
         t.Fatalf( "ParseMsg - succeeded for invalid message type upper bound" )
+    }
+
+    _, err = msgGen.GetMsgN( msgConst )
+    if err == nil {
+        t.Fatalf( "GetMsgN - succeeded for invalid message type lower bound" )
+    }
+
+    _, err = msgGen.ParseMsg( msg, msgCallback )
+    if err == nil {
+        t.Fatalf( "ParseMsg - succeeded for invalid message type lower bound" )
     }
 }
 
