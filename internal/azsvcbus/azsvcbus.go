@@ -103,7 +103,7 @@ func ( azSvcBus *AzSvcBus )Start( ) {
     ctx, _             := context.WithTimeout( context.Background( ), azSvcBus.Duration )
     azSvcBus.senderCtx  = ctx
 
-    ctx, cancel := context.WithTimeout( context.Background( ), azSvcBus.Duration + ( 2 * time.Minute ) )
+    ctx, cancel := context.WithTimeout( context.Background( ), azSvcBus.Duration + ( 1 * time.Minute ) )
     defer func( ) {
         cancel( )
     }( )
