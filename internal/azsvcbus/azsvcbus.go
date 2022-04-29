@@ -166,7 +166,7 @@ func ( azSvcBus *AzSvcBus )sendMessage( idx int )( err error ) {
         ContentType             : &msgContentType,
     }
 
-    msg, err := azSvcBus.msgGen.GetMsg( )
+    msg, err := azSvcBus.msgGen.GetMsgN( azSvcBus.MsgsPerSend )
     if err != nil {
         glog.Errorf( "%v: Failed to get message, error = %v", id, err )
         return err
@@ -179,6 +179,8 @@ func ( azSvcBus *AzSvcBus )sendMessage( idx int )( err error ) {
         glog.Errorf( "%v: Failed to send message, error = %v", id, err )
         return err
     }
+
+    azSvcBus.stats.UpdateSenderStat( idx, uint64( azSvcBus.MsgsPerSend ) )
 
     return nil
 }
@@ -224,7 +226,6 @@ func ( azSvcBus *AzSvcBus )startSender( idx int ) {
             return
         }
 
-        azSvcBus.stats.UpdateSenderStat( idx, 1 )
         time.Sleep( azSvcBus.SendInterval )
     }
 
@@ -276,7 +277,7 @@ func ( azSvcBus *AzSvcBus )receivedMessageCallback( idx int, message *azserviceb
         return fmt.Errorf( "%v: Failed to get received message body, error = %v", id, err )
     }
 
-    msgInst, err := azSvcBus.msgGen.ParseMsg( msg )
+    msgList, err := azSvcBus.msgGen.ParseMsg( msg, nil )
     if err != nil {
         glog.Errorf( "%v: Failed to parse message, error = %v", id, err )
         return fmt.Errorf( "%v: Failed to parse message, error = %v", id, err )
@@ -285,7 +286,7 @@ func ( azSvcBus *AzSvcBus )receivedMessageCallback( idx int, message *azserviceb
     if senderIdxPropVal, exists := message.ApplicationProperties[ idxPropName ]; exists {
         senderIdx, ok := senderIdxPropVal.( int64 )
         if ok {
-            azSvcBus.stats.UpdateReceiverStat( idx, int( senderIdx ), 1, uint64( msgInst.GetLatency( ) ) )
+            azSvcBus.stats.UpdateReceiverStat( idx, int( senderIdx ), uint64( msgList.Count ), uint64( msgList.GetLatency( ) ) )
         } else {
             glog.Errorf( "%v: Invalid sender index in message application properties", id )
             return fmt.Errorf( "%v: Invalid sender index in message application properties", id )
