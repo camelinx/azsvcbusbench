@@ -279,11 +279,7 @@ func ( azSvcBus *AzSvcBus )receivedMessageCallback( idx int, message *azserviceb
     }
 
     msgCb := func( msg *helpers.Msg )( err error ) {
-        if nil == net.ParseIP( msg.ClientIp ).To4( ) {
-            return fmt.Errorf( "invalid ip address %v in message", msg.ClientIp )
-        }
-
-        return nil
+        return azSvcBus.msgGen.ValidateMsg( msg )
     }
 
     msgList, err := azSvcBus.msgGen.ParseMsg( msg, msgCb )
