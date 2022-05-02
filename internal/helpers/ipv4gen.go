@@ -210,57 +210,57 @@ func ( ipv4Gen *Ipv4Gen )ValidateIpv4Address( ipv4Addr string )( err error ) {
     return ipv4Validators[ ipv4Gen.Class ]( ipv4Addr )
 }
 
-func validateClassAny( sip string )( err error ) {
-    nip := net.ParseIP( sip ).To4( )
+func validateClassAny( ipv4Addr string )( err error ) {
+    nip := net.ParseIP( ipv4Addr ).To4( )
     if nil == nip {
-        return fmt.Errorf( "invalid ip address" )
+        return fmt.Errorf( "invalid ip address %v", ipv4Addr )
     }
 
     if nip[ 0 ] <= ipv4MinOctet {
-        return fmt.Errorf( "invalid ip address starting with octet 0" )
+        return fmt.Errorf( "invalid ip address %v starting with octet 0", ipv4Addr )
     }
 
     return nil
 }
 
-func validateClassA( sip string )( err error ) {
-    nip := net.ParseIP( sip ).To4( )
+func validateClassA( ipv4Addr string )( err error ) {
+    nip := net.ParseIP( ipv4Addr ).To4( )
     if nil == nip {
-        return fmt.Errorf( "invalid ip address" )
+        return fmt.Errorf( "invalid ip address %v", ipv4Addr )
     }
 
     if nip[ 0 ] <= ipv4MinOctet || nip[ 0 ] > ipv4ClassAMaxOctet {
-        return fmt.Errorf( "not a class A ip address" )
+        return fmt.Errorf( "not a class A ip address %v", ipv4Addr )
     }
 
     if nip[ 0 ] == ipv4ClassAPrivateFirstOctet {
-        return fmt.Errorf( "class A private ip address" )
+        return fmt.Errorf( "class A private ip address %v", ipv4Addr )
     }
 
     return nil
 }
 
-func validateClassAPrivate( sip string )( err error ) {
-    nip := net.ParseIP( sip ).To4( )
+func validateClassAPrivate( ipv4Addr string )( err error ) {
+    nip := net.ParseIP( ipv4Addr ).To4( )
     if nil == nip {
-        return fmt.Errorf( "invalid ip address" )
+        return fmt.Errorf( "invalid ip address %v", ipv4Addr )
     }
 
     if nip[ 0 ] != ipv4ClassAPrivateFirstOctet {
-        return fmt.Errorf( "not a class A private ip address" )
+        return fmt.Errorf( "not a class A private ip address %v", ipv4Addr )
     }
 
     return nil
 }
 
-func validateClassLoopback( sip string )( err error ) {
-    nip := net.ParseIP( sip ).To4( )
+func validateClassLoopback( ipv4Addr string )( err error ) {
+    nip := net.ParseIP( ipv4Addr ).To4( )
     if nil == nip {
-        return fmt.Errorf( "invalid ip address" )
+        return fmt.Errorf( "invalid ip address %v", ipv4Addr )
     }
 
     if nip[ 0 ] != ipv4LoopbackFirstOctet {
-        return fmt.Errorf( "not a loopback ip address" )
+        return fmt.Errorf( "not a loopback ip address %v", ipv4Addr )
     }
 
     return nil
