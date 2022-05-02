@@ -72,6 +72,18 @@ func getCounters( )( int, int ) {
     return getRandomInt( RandomCur ), getRandomInt( RandomDelta )
 }
 
+func ( msg *Msg )validateCounters( )( err error ) {
+    if msg.Current < 0 || msg.Current >= RandomCur {
+        return fmt.Errorf( "invalid current counter %v", msg.Current )
+    }
+
+    if msg.Delta < 0 || msg.Delta >= RandomDelta {
+        return fmt.Errorf( "invalid delta counter %v", msg.Delta )
+    }
+
+    return nil
+}
+
 func InitMsgGen( file io.Reader, ipCount int, ipClass Ipv4AddrClass, msgType MsgType )( msgGen *MsgGen, err error ) {
     if ipCount <= 0 && file == nil {
         return nil, fmt.Errorf( "ip address count and reader are invalid" )
@@ -165,6 +177,15 @@ func ( msgGen *MsgGen )ParseMsg( msg [ ]byte, cb MsgCb )( msgList *Msgs, err err
     }
 
     return nil, fmt.Errorf( "failed to parse message" )
+}
+
+func ( msgGen *MsgGen )ValidateMsg( msg *Msg )( err error ) {
+    err = msg.validateCounters( )
+    if err != nil {
+        return err
+    }
+
+    return msgGen.ipv4Gen.ValidateIpv4Address( msg.ClientIp )
 }
 
 func ( msgList *Msgs )GetLatency( )( latency int64 ) {

@@ -2,7 +2,6 @@ package helpers
 
 import (
     "testing"
-    "net"
     "fmt"
     "strings"
 )
@@ -12,66 +11,6 @@ const (
     ipv4ReaderBase  = "10.0.0."
     ipv4ReaderStr   = "10.0.0.1\n10.0.0.2\n10.0.0.3"
 )
-
-type ipv4Validator func( string )( error )
-
-var ipv4Validators = [ ]ipv4Validator {
-    Ipv4AddrClassAny        :   validateClassAny,
-    Ipv4AddrClassA          :   validateClassA,
-    Ipv4AddrClassAPrivate   :   validateClassAPrivate,
-    Ipv4AddrClassLoopback   :   validateClassLoopback,
-}
-
-func validateClassAny( sip string )( err error ) {
-    if nil == net.ParseIP( sip ).To4( ) {
-        return fmt.Errorf( "invalid ip address" )
-    }
-
-    return nil
-}
-
-func validateClassA( sip string )( err error ) {
-    nip := net.ParseIP( sip ).To4( )
-    if nil == nip {
-        return fmt.Errorf( "invalid ip address" )
-    }
-
-    if nip[ 0 ] <= ipv4MinOctet || nip[ 0 ] > ipv4ClassAMaxOctet {
-        return fmt.Errorf( "not a class A ip address" )
-    }
-
-    if nip[ 0 ] == ipv4ClassAPrivateFirstOctet {
-        return fmt.Errorf( "class A private ip address" )
-    }
-
-    return nil
-}
-
-func validateClassAPrivate( sip string )( err error ) {
-    nip := net.ParseIP( sip ).To4( )
-    if nil == nip {
-        return fmt.Errorf( "invalid ip address" )
-    }
-
-    if nip[ 0 ] != ipv4ClassAPrivateFirstOctet {
-        return fmt.Errorf( "not a class A private ip address" )
-    }
-
-    return nil
-}
-
-func validateClassLoopback( sip string )( err error ) {
-    nip := net.ParseIP( sip ).To4( )
-    if nil == nip {
-        return fmt.Errorf( "invalid ip address" )
-    }
-
-    if nip[ 0 ] != ipv4LoopbackFirstOctet {
-        return fmt.Errorf( "not a loopback ip address" )
-    }
-
-    return nil
-}
 
 func testNewIpv4Generator( t *testing.T )( ipv4Gen *Ipv4Gen ) {
     ipv4Gen = NewIpv4Generator( )
@@ -134,7 +73,7 @@ func TestInitIpv4Block( t *testing.T ) {
         }
 
         for j := 0; j < ipv4GenMagicNum; j++ {
-            err = ipv4Validators[ class ]( ipv4Gen.Block[ j ] )
+            err = ipv4Gen.ValidateIpv4Address( ipv4Gen.Block[ j ] )
             if err != nil {
                 t.Fatalf( "GetIpv4Block - invalid ip address %v for count %v and class %v: error %v", ipv4Gen.Block[ j ], ipv4GenMagicNum, class, err )
             }
@@ -156,7 +95,7 @@ func TestGetRandomIp( t *testing.T ) {
                 t.Fatalf( "GetRandomIp - error %v", err )
             }
 
-            err = ipv4Validators[ class ]( randomIp )
+            err = ipv4Gen.ValidateIpv4Address( randomIp )
             if err != nil {
                 t.Fatalf( "GetRandomIp - invalid ip address %v for count %v and class %v: error %v", randomIp, ipv4GenMagicNum, class, err )
             }
@@ -182,9 +121,81 @@ func TestGetRandomIp( t *testing.T ) {
             t.Fatalf( "GetRandomIp - error %v", err )
         }
 
-        err = ipv4Validators[ Ipv4AddrClassAPrivate ]( randomIp )
+        err = ipv4Gen.ValidateIpv4Address( randomIp )
         if err != nil {
             t.Fatalf( "GetRandomIp - invalid ip address %v from reader: error %v", randomIp, err )
         }
+    }
+}
+
+type negativeTester func( *testing.T, *Ipv4Gen  )
+
+var negativeTesters = [ ]negativeTester {
+    Ipv4AddrClassAny        :   negativeTestClassAny,
+    Ipv4AddrClassA          :   negativeTestClassA,
+    Ipv4AddrClassAPrivate   :   negativeTestClassAPrivate,
+    Ipv4AddrClassLoopback   :   negativeTestClassLoopback,
+}
+
+func negativeTestClassAny( t *testing.T, ipv4Gen *Ipv4Gen ) {
+    invalidIps := [ ]string { "0.1.2.3", "11.12.13.256", "121.256.23.24", "131.32.256.34", "256.242.43.44", "256.256.256.256" }
+
+    for _, invalidIp := range invalidIps {
+        err := ipv4Gen.ValidateIpv4Address( invalidIp )
+        if err == nil {
+            t.Fatalf( "ValidateIpv4Address - failed to detect invalid ip address %v for class any", invalidIp )
+        }
+    }
+}
+
+func negativeTestClassA( t *testing.T, ipv4Gen *Ipv4Gen ) {
+    invalidIps := [ ]string { "0.1.2.3", "11.12.13.256", "21.256.23.24", "31.32.256.34", "256.42.43.44", "127.0.0.1", "10.0.0.1", "128.0.0.1", "192.0.0.1", "172.0.0.1" }
+
+    for _, invalidIp := range invalidIps {
+        err := ipv4Gen.ValidateIpv4Address( invalidIp )
+        if err == nil {
+            t.Fatalf( "ValidateIpv4Address - failed to detect invalid ip address %v for class A", invalidIp )
+        }
+    }
+}
+
+func negativeTestClassAPrivate( t *testing.T, ipv4Gen *Ipv4Gen ) {
+    invalidIps := [ ]string { "0.1.2.3", "11.12.13.256", "21.256.23.24", "31.32.256.34", "256.42.43.44", "127.0.0.1", "128.0.0.1", "192.0.0.1", "172.0.0.1" }
+
+    for _, invalidIp := range invalidIps {
+        err := ipv4Gen.ValidateIpv4Address( invalidIp )
+        if err == nil {
+            t.Fatalf( "ValidateIpv4Address - failed to detect invalid ip address %v for class A private", invalidIp )
+        }
+    }
+}
+
+func negativeTestClassLoopback( t *testing.T, ipv4Gen *Ipv4Gen ) {
+    invalidIps := [ ]string { "0.1.2.3", "11.12.13.256", "21.256.23.24", "31.32.256.34", "256.42.43.44", "10.0.0.1", "128.0.0.1", "192.0.0.1", "172.0.0.1" }
+
+    for _, invalidIp := range invalidIps {
+        err := ipv4Gen.ValidateIpv4Address( invalidIp )
+        if err == nil {
+            t.Fatalf( "ValidateIpv4Address - failed to detect invalid ip address %v for loopback", invalidIp )
+        }
+    }
+}
+
+func TestValidateIpv4Address( t *testing.T ) {
+    for class := Ipv4AddrClassAny; class <= Ipv4AddrClassLoopback; class++ {
+        ipv4Gen := testNewIpv4Generator( t )
+        err     := ipv4Gen.InitIpv4Block( ipv4GenMagicNum, class )
+        if err != nil || !ipv4Gen.Initialized {
+            t.Fatalf( "InitIpv4Block - failed to initialize from count" )
+        }
+
+        for j := 0; j < ipv4GenMagicNum; j++ {
+            err = ipv4Gen.ValidateIpv4Address( ipv4Gen.Block[ j ] )
+            if err != nil {
+                t.Fatalf( "ValidateIpv4Address - invalid ip address %v for count %v and class %v: error %v", ipv4Gen.Block[ j ], ipv4GenMagicNum, class, err )
+            }
+        }
+
+        negativeTesters[ class ]( t, ipv4Gen )
     }
 }

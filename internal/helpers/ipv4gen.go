@@ -3,6 +3,7 @@ package helpers
 import (
     "fmt"
     "io"
+    "net"
     "math/rand"
 )
 
@@ -55,6 +56,8 @@ func ( ipv4Gen *Ipv4Gen )InitIpv4BlockFromReader( file io.Reader )( err error ) 
         ipv4Gen.Count++
         return nil
     }
+
+    ipv4Gen.Class = Ipv4AddrClassAny
 
     err = ProcessFile( file, cb )
     if err != nil {
@@ -188,4 +191,77 @@ func genIpv4OctetWithExcludeList( min, max int, excludeList [ ]int )( int, error
 
 func getIpv4StringFromOctets( octets [ ]int )( ipv4Addr string ) {
     return fmt.Sprintf( "%d.%d.%d.%d", octets[ 0 ], octets[ 1 ], octets[ 2 ], octets[ 3 ] )
+}
+
+type ipv4Validator func( string )( error )
+
+var ipv4Validators = [ ]ipv4Validator {
+    Ipv4AddrClassAny        :   validateClassAny,
+    Ipv4AddrClassA          :   validateClassA,
+    Ipv4AddrClassAPrivate   :   validateClassAPrivate,
+    Ipv4AddrClassLoopback   :   validateClassLoopback,
+}
+
+func ( ipv4Gen *Ipv4Gen )ValidateIpv4Address( ipv4Addr string )( err error ) {
+    if ipv4Gen.Class <= Ipv4AddrClassMin || ipv4Gen.Class >= Ipv4AddrClassMax {
+        return fmt.Errorf( "invalid address class %v", ipv4Gen.Class )
+    }
+
+    return ipv4Validators[ ipv4Gen.Class ]( ipv4Addr )
+}
+
+func validateClassAny( sip string )( err error ) {
+    nip := net.ParseIP( sip ).To4( )
+    if nil == nip {
+        return fmt.Errorf( "invalid ip address" )
+    }
+
+    if nip[ 0 ] <= ipv4MinOctet {
+        return fmt.Errorf( "invalid ip address starting with octet 0" )
+    }
+
+    return nil
+}
+
+func validateClassA( sip string )( err error ) {
+    nip := net.ParseIP( sip ).To4( )
+    if nil == nip {
+        return fmt.Errorf( "invalid ip address" )
+    }
+
+    if nip[ 0 ] <= ipv4MinOctet || nip[ 0 ] > ipv4ClassAMaxOctet {
+        return fmt.Errorf( "not a class A ip address" )
+    }
+
+    if nip[ 0 ] == ipv4ClassAPrivateFirstOctet {
+        return fmt.Errorf( "class A private ip address" )
+    }
+
+    return nil
+}
+
+func validateClassAPrivate( sip string )( err error ) {
+    nip := net.ParseIP( sip ).To4( )
+    if nil == nip {
+        return fmt.Errorf( "invalid ip address" )
+    }
+
+    if nip[ 0 ] != ipv4ClassAPrivateFirstOctet {
+        return fmt.Errorf( "not a class A private ip address" )
+    }
+
+    return nil
+}
+
+func validateClassLoopback( sip string )( err error ) {
+    nip := net.ParseIP( sip ).To4( )
+    if nil == nip {
+        return fmt.Errorf( "invalid ip address" )
+    }
+
+    if nip[ 0 ] != ipv4LoopbackFirstOctet {
+        return fmt.Errorf( "not a loopback ip address" )
+    }
+
+    return nil
 }

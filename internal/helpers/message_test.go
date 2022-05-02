@@ -82,24 +82,11 @@ func testInitMsgFromReader( )( msgGen *MsgGen, err error ) {
     return InitMsgGen( strReader, 0, Ipv4AddrClassAny, MsgTypeJson )
 }
 
-func msgCallback( msg *Msg )( err error ) {
-    if msg.Current < 0 || msg.Current > RandomCur {
-        return fmt.Errorf( "ParseMsg - invalid current field" )
-    }
-
-    if msg.Delta < 0 || msg.Delta > RandomDelta {
-        return fmt.Errorf( "ParseMsg - invalid delta field" )
-    }
-
-    err = validateClassAny( msg.ClientIp )
-    if err != nil {
-        return err
-    }
-
-    return nil
-}
-
 func ( msgGen *MsgGen )test( t *testing.T ) {
+    msgCallback := func( msg *Msg )( err error ) {
+        return msgGen.ValidateMsg( msg )
+    }
+
     for i := 0; i < ipv4GenMagicNum; i++ {
         msg, err := msgGen.GetMsg( )
         if err != nil {
