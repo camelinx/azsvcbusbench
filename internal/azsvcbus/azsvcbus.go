@@ -5,7 +5,6 @@ import (
     "time"
     "context"
     "os"
-    "net"
     "fmt"
 
     "github.com/golang/glog"
