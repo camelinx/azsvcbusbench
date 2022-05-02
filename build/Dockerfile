@@ -2,7 +2,8 @@ FROM centos/systemd
 
 LABEL maintainer="Sudarshan Raghavan <camelinx@gmail.com>"
 
-COPY build/azsvcbusbench /
-COPY build/idgen /
+COPY bin/azsvcbusbench /
+COPY bin/idgen /
+COPY bin/ipv4gen /
 
 ENTRYPOINT ["/azsvcbusbench"]
