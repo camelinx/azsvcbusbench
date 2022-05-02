@@ -5,6 +5,7 @@ import (
     "time"
     "context"
     "os"
+    "net"
     "fmt"
 
     "github.com/golang/glog"
@@ -277,7 +278,15 @@ func ( azSvcBus *AzSvcBus )receivedMessageCallback( idx int, message *azserviceb
         return fmt.Errorf( "%v: Failed to get received message body, error = %v", id, err )
     }
 
-    msgList, err := azSvcBus.msgGen.ParseMsg( msg, nil )
+    msgCb := func( msg *helpers.Msg )( err error ) {
+        if nil == net.ParseIP( msg.ClientIp ).To4( ) {
+            return fmt.Errorf( "invalid ip address %v in message", msg.ClientIp )
+        }
+
+        return nil
+    }
+
+    msgList, err := azSvcBus.msgGen.ParseMsg( msg, msgCb )
     if err != nil {
         glog.Errorf( "%v: Failed to parse message, error = %v", id, err )
         return fmt.Errorf( "%v: Failed to parse message, error = %v", id, err )
