@@ -23,6 +23,7 @@ var (
 
 func NewAzSvcBus( )( *AzSvcBus ) {
     return &AzSvcBus {
+        Index       : 0,
         azSvcBusCtx : azSvcBusCtx {
             wg    : &sync.WaitGroup{ },
             stats : stats.NewStats( nil, nil ),
@@ -153,8 +154,21 @@ func ( azSvcBus *AzSvcBus )Start( ) {
     azSvcBus.stats.StopDumper( )
 }
 
+func ( azSvcBus *AzSvcBus )getSenderIdFromIdx( idx int )( id string, err error ) {
+    realIdx := idx + ( azSvcBus.Index * azSvcBus.TotSenders )
+    if realIdx >= len( azSvcBus.idGen.Block ) {
+        return "", fmt.Errorf( "did not find id for index %v and offset index %v", idx, azSvcBus.Index )
+    }
+
+    return azSvcBus.idGen.Block[ realIdx ], nil
+}
+
 func ( azSvcBus *AzSvcBus )sendMessage( idx int )( err error ) {
-    id := azSvcBus.idGen.Block[ idx ]
+    id, err := azSvcBus.getSenderIdFromIdx( idx )
+    if err != nil {
+        glog.Errorf( "Failed to get index, error = %v", err )
+        return err
+    }
 
     appProps := map[ string ]interface{ }{
         azSvcBus.PropName : id,
@@ -187,7 +201,11 @@ func ( azSvcBus *AzSvcBus )sendMessage( idx int )( err error ) {
 
 func ( azSvcBus *AzSvcBus )newSender( idx int )( err error ) {
     if azSvcBus.senders[ idx ] == nil {
-        id := azSvcBus.idGen.Block[ idx ]
+        id, err := azSvcBus.getSenderIdFromIdx( idx )
+        if err != nil {
+            glog.Errorf( "Failed to get index, error = %v", err )
+            return err
+        }
 
         azSvcBusSender, err := azSvcBus.client.NewSender( azSvcBus.TopicName, nil )
         if err != nil {
@@ -232,10 +250,23 @@ func ( azSvcBus *AzSvcBus )startSender( idx int ) {
     return
 }
 
+func ( azSvcBus *AzSvcBus )getReceiverIdFromIdx( idx int )( id string, err error ) {
+    realIdx := idx + ( azSvcBus.Index * azSvcBus.TotReceivers )
+    if realIdx >= len( azSvcBus.idGen.Block ) {
+        return "", fmt.Errorf( "did not find id for index %v and offset index %v", idx, azSvcBus.Index )
+    }
+
+    return azSvcBus.idGen.Block[ realIdx ], nil
+}
+
 type azSvcMsgCb func( idx int, message *azservicebus.ReceivedMessage )( err error )
 
 func ( azSvcBus *AzSvcBus )receiveMessages( idx int, cb azSvcMsgCb )( err error ) {
-    id := azSvcBus.idGen.Block[ idx ]
+    id, err := azSvcBus.getReceiverIdFromIdx( idx )
+    if err != nil {
+        glog.Errorf( "Failed to get index, error = %v", err )
+        return err
+    }
 
     messages, err := azSvcBus.receivers[ idx ].PeekMessages( azSvcBus.receiverCtx, azSvcBus.MsgsPerReceive, nil )
     if err != nil {
@@ -256,7 +287,11 @@ func ( azSvcBus *AzSvcBus )receiveMessages( idx int, cb azSvcMsgCb )( err error 
 }
 
 func ( azSvcBus *AzSvcBus )receivedMessageCallback( idx int, message *azservicebus.ReceivedMessage )( err error ) {
-    id := azSvcBus.idGen.Block[ idx ]
+    id, err := azSvcBus.getReceiverIdFromIdx( idx )
+    if err != nil {
+        glog.Errorf( "Failed to get index, error = %v", err )
+        return err
+    }
 
     if message.ContentType != nil && *message.ContentType != msgContentType {
         glog.Errorf( "%v: Ignoring message with unknown content type %v", id, message.ContentType )
@@ -305,7 +340,11 @@ func ( azSvcBus *AzSvcBus )receivedMessageCallback( idx int, message *azserviceb
 
 func ( azSvcBus *AzSvcBus )newReceiver( idx int )( err error ) {
     if azSvcBus.receivers[ idx ] == nil {
-        id := azSvcBus.idGen.Block[ idx ]
+        id, err := azSvcBus.getReceiverIdFromIdx( idx )
+        if err != nil {
+            glog.Errorf( "Failed to get index, error = %v", err )
+            return err
+        }
 
         azSvcBusReceiver, err := azSvcBus.client.NewReceiverForSubscription( azSvcBus.TopicName, azSvcBus.SubName, nil )
         if err != nil {

@@ -71,6 +71,8 @@ func main( ) {
     setupString( &azsvcbusBench.IpsFile, ipsFile, "AZSVCBUS_IPS_FILE" )
     setupString( &azsvcbusBench.IdsFile, idsFile, "AZSVCBUS_IDS_FILE" )
 
+    setupInt( &azsvcbusBench.Index, nil, "JOB_COMPLETION_INDEX" )
+
     glog.Infof( "Starting Azure Service Bus Bench test %+v", azsvcbusBench )
     azsvcbusBench.Start( )
 }
