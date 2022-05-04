@@ -154,17 +154,17 @@ func ( azSvcBus *AzSvcBus )Start( ) {
     azSvcBus.stats.StopDumper( )
 }
 
-func ( azSvcBus *AzSvcBus )getSenderIdFromIdx( idx int )( id string, err error ) {
-    realIdx := idx + ( azSvcBus.Index * azSvcBus.TotSenders )
+func ( azSvcBus *AzSvcBus )getSenderIdFromIdx( idx int )( id string, realIdx int, err error ) {
+    realIdx = idx + ( azSvcBus.Index * azSvcBus.TotSenders )
     if realIdx >= len( azSvcBus.idGen.Block ) {
-        return "", fmt.Errorf( "did not find id for index %v and offset index %v", idx, azSvcBus.Index )
+        return "", 0, fmt.Errorf( "did not find id for index %v and offset index %v", idx, azSvcBus.Index )
     }
 
-    return azSvcBus.idGen.Block[ realIdx ], nil
+    return azSvcBus.idGen.Block[ realIdx ], realIdx, nil
 }
 
 func ( azSvcBus *AzSvcBus )sendMessage( idx int )( err error ) {
-    id, err := azSvcBus.getSenderIdFromIdx( idx )
+    id, realIdx, err := azSvcBus.getSenderIdFromIdx( idx )
     if err != nil {
         glog.Errorf( "Failed to get index, error = %v", err )
         return err
@@ -172,7 +172,7 @@ func ( azSvcBus *AzSvcBus )sendMessage( idx int )( err error ) {
 
     appProps := map[ string ]interface{ }{
         azSvcBus.PropName : id,
-        idxPropName       : idx,
+        idxPropName       : realIdx,
     }
 
     azsvcbusmsg := &azservicebus.Message{
@@ -194,14 +194,14 @@ func ( azSvcBus *AzSvcBus )sendMessage( idx int )( err error ) {
         return err
     }
 
-    azSvcBus.stats.UpdateSenderStat( idx, uint64( azSvcBus.MsgsPerSend ) )
+    azSvcBus.stats.UpdateSenderStat( realIdx, uint64( azSvcBus.MsgsPerSend ) )
 
     return nil
 }
 
 func ( azSvcBus *AzSvcBus )newSender( idx int )( err error ) {
     if azSvcBus.senders[ idx ] == nil {
-        id, err := azSvcBus.getSenderIdFromIdx( idx )
+        id, _, err := azSvcBus.getSenderIdFromIdx( idx )
         if err != nil {
             glog.Errorf( "Failed to get index, error = %v", err )
             return err
@@ -250,19 +250,19 @@ func ( azSvcBus *AzSvcBus )startSender( idx int ) {
     return
 }
 
-func ( azSvcBus *AzSvcBus )getReceiverIdFromIdx( idx int )( id string, err error ) {
-    realIdx := idx + ( azSvcBus.Index * azSvcBus.TotReceivers )
+func ( azSvcBus *AzSvcBus )getReceiverIdFromIdx( idx int )( id string, realIdx int, err error ) {
+    realIdx = idx + ( azSvcBus.Index * azSvcBus.TotReceivers )
     if realIdx >= len( azSvcBus.idGen.Block ) {
-        return "", fmt.Errorf( "did not find id for index %v and offset index %v", idx, azSvcBus.Index )
+        return "", 0, fmt.Errorf( "did not find id for index %v and offset index %v", idx, azSvcBus.Index )
     }
 
-    return azSvcBus.idGen.Block[ realIdx ], nil
+    return azSvcBus.idGen.Block[ realIdx ], realIdx, nil
 }
 
 type azSvcMsgCb func( idx int, message *azservicebus.ReceivedMessage )( err error )
 
 func ( azSvcBus *AzSvcBus )receiveMessages( idx int, cb azSvcMsgCb )( err error ) {
-    id, err := azSvcBus.getReceiverIdFromIdx( idx )
+    id, _, err := azSvcBus.getReceiverIdFromIdx( idx )
     if err != nil {
         glog.Errorf( "Failed to get index, error = %v", err )
         return err
@@ -287,7 +287,7 @@ func ( azSvcBus *AzSvcBus )receiveMessages( idx int, cb azSvcMsgCb )( err error 
 }
 
 func ( azSvcBus *AzSvcBus )receivedMessageCallback( idx int, message *azservicebus.ReceivedMessage )( err error ) {
-    id, err := azSvcBus.getReceiverIdFromIdx( idx )
+    id, realIdx, err := azSvcBus.getReceiverIdFromIdx( idx )
     if err != nil {
         glog.Errorf( "Failed to get index, error = %v", err )
         return err
@@ -325,7 +325,7 @@ func ( azSvcBus *AzSvcBus )receivedMessageCallback( idx int, message *azserviceb
     if senderIdxPropVal, exists := message.ApplicationProperties[ idxPropName ]; exists {
         senderIdx, ok := senderIdxPropVal.( int64 )
         if ok {
-            azSvcBus.stats.UpdateReceiverStat( idx, int( senderIdx ), uint64( msgList.Count ), uint64( msgList.GetLatency( ) ) )
+            azSvcBus.stats.UpdateReceiverStat( realIdx, int( senderIdx ), uint64( msgList.Count ), uint64( msgList.GetLatency( ) ) )
         } else {
             glog.Errorf( "%v: Invalid sender index in message application properties", id )
             return fmt.Errorf( "%v: Invalid sender index in message application properties", id )
@@ -340,7 +340,7 @@ func ( azSvcBus *AzSvcBus )receivedMessageCallback( idx int, message *azserviceb
 
 func ( azSvcBus *AzSvcBus )newReceiver( idx int )( err error ) {
     if azSvcBus.receivers[ idx ] == nil {
-        id, err := azSvcBus.getReceiverIdFromIdx( idx )
+        id, _, err := azSvcBus.getReceiverIdFromIdx( idx )
         if err != nil {
             glog.Errorf( "Failed to get index, error = %v", err )
             return err
