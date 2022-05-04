@@ -1,4 +1,4 @@
-FROM centos/systemd
+FROM alpine:3.15
 
 LABEL maintainer="Sudarshan Raghavan <camelinx@gmail.com>"
 
