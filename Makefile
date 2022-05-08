@@ -18,20 +18,24 @@ DOCKERFILE = build/Dockerfile
 
 azsvcbusbench:
 	mkdir -p $(BINDIR)
-	$(DOCKER_RUN) -e CGO_ENABLED=0 $(GOLANG_CONTAINER) go build -ldflags "-w -X main.version=${VERSION}" -o $(BINDIR)/$@ github.com/azsvcbusbench/cmd/azsvcbusbench
+	$(DOCKER_RUN) -e CGO_ENABLED=0 $(GOLANG_CONTAINER) go build -ldflags "-w -X main.version=${VERSION}" -o $(BINDIR)/$@ github.com/azsvcbusbench/cmd/$@
+
+azevhubbench:
+	mkdir -p $(BINDIR)
+	$(DOCKER_RUN) -e CGO_ENABLED=0 $(GOLANG_CONTAINER) go build -ldflags "-w -X main.version=${VERSION}" -o $(BINDIR)/$@ github.com/azsvcbusbench/cmd/$@
 
 idgen:
 	mkdir -p $(BINDIR)
-	$(DOCKER_RUN) -e CGO_ENABLED=0 $(GOLANG_CONTAINER) go build -ldflags "-w -X main.version=${VERSION}" -o $(BINDIR)/$@ github.com/azsvcbusbench/cmd/idgen
+	$(DOCKER_RUN) -e CGO_ENABLED=0 $(GOLANG_CONTAINER) go build -ldflags "-w -X main.version=${VERSION}" -o $(BINDIR)/$@ github.com/azsvcbusbench/cmd/$@
 
 ipv4gen:
 	mkdir -p $(BINDIR)
-	$(DOCKER_RUN) -e CGO_ENABLED=0 $(GOLANG_CONTAINER) go build -ldflags "-w -X main.version=${VERSION}" -o $(BINDIR)/$@ github.com/azsvcbusbench/cmd/ipv4gen
+	$(DOCKER_RUN) -e CGO_ENABLED=0 $(GOLANG_CONTAINER) go build -ldflags "-w -X main.version=${VERSION}" -o $(BINDIR)/$@ github.com/azsvcbusbench/cmd/$@
 
 test:
 	$(DOCKER_RUN) $(GOLANG_CONTAINER) go test -v ./...
 
-image: azsvcbusbench idgen ipv4gen
+image: azsvcbusbench azevhubbench idgen ipv4gen
 	docker build -f $(DOCKERFILE) -t $(PREFIX):$(TAG) .
 
 push: image
