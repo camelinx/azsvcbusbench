@@ -6,7 +6,6 @@ import (
     "context"
     "os"
     "fmt"
-    "strings"
 
     "github.com/golang/glog"
 
@@ -104,12 +103,13 @@ func ( azEvHub *AzEvHub )Write( nameSpace, name, consumerGroup, partitionId stri
     return azEvHub.persister.Write( nameSpace, name, consumerGroup, partitionId, checkPoint )
 }
 
-func ( azEvHub *AzEvHub )setupCheckPointPersister( )( evhub_persist.CheckPointPersister, error ) {
-    if len( azEvhub.PersistDir ) > 0 {
+func ( azEvHub *AzEvHub )setupCheckPointPersister( )( evhub_persist.CheckpointPersister, error ) {
+    if len( azEvHub.PersistDir ) > 0 {
         return evhub_persist.NewFilePersister( azEvHub.PersistDir )
     }
 
-    return evhub_persist.NewMemoryPersister( )
+    persister := evhub_persist.NewMemoryPersister( )
+    return persister, nil
 }
 
 func ( azEvHub *AzEvHub )Start( ) {
@@ -164,10 +164,16 @@ func ( azEvHub *AzEvHub )Start( ) {
 
             go func( idx int ) {
                 defer azEvHub.wg.Done( )
-                azEvHub.startReceiver( idx, receiverChan )
+                err = azEvHub.startReceiver( idx )
+                if err != nil {
+                    azEvHub.receiversChan[ idx ] <- false
+                }
             }( i )
 
-            <-azEvHub.receiversChan[ i ]
+            receiverRunning := <-azEvHub.receiversChan[ i ]
+            if !receiverRunning {
+                glog.Fatalf( "failed to start receiver: %v", i )
+            }
         }
     }
 
@@ -208,7 +214,7 @@ func ( azEvHub *AzEvHub )sendMessage( idx int )( err error ) {
 
     event := &evhub.Event {
         Properties   : appProps,
-        PartitionKey : id,
+        PartitionKey : &id,
     }
 
     msg, err := azEvHub.msgGen.GetMsgN( azEvHub.MsgsPerSend )
@@ -255,7 +261,7 @@ func ( azEvHub *AzEvHub )startSender( idx int ) {
         }
 
         select {
-            case <-senderCtx.Done( ):
+            case <-azEvHub.senderCtx.Done( ):
                 break
 
             default:
@@ -325,10 +331,10 @@ func ( azEvHub *AzEvHub )closeReceiver( idx int )( err error ) {
     return nil
 }
 
-func ( azEvHub *AzEvHub )startReceiver( idx int ) {
-    err := azEvHub.newReceiver( idx )
+func ( azEvHub *AzEvHub )startReceiver( idx int )( err error ) {
+    err = azEvHub.newReceiver( idx )
     if err != nil {
-        return
+        return err
     }
 
     defer func( ) {
@@ -337,49 +343,45 @@ func ( azEvHub *AzEvHub )startReceiver( idx int ) {
 
     runtimeInfo, err := azEvHub.hub.GetRuntimeInformation( azEvHub.receiverCtx )
     if err != nil {
-        return
+        return err
     }
 
     cb := func( ctx context.Context, event *evhub.Event )( err error ) {
         return azEvHub.receivedMessageCallback( idx, event )
     }
 
-    handles := make( [ ]*evhub.ListenerHandle, len( runtimeInfo.PartitionIDs ) )
-
-    for idx, partitionId := range runtimeInfo.PartitionIDs {
+    for _, partitionId := range runtimeInfo.PartitionIDs {
         checkPoint, err := azEvHub.Read( azEvHub.NameSpace, azEvHub.Name, azEvHub.ConsumerGroup, partitionId )
 
         var handle *evhub.ListenerHandle
 
         if err != nil {
-            handle, err := azEvHub.hub.Receive( azEvHub.receiverCtx, partitionId, cb, evhub.ReceiveWithLatestOffset( ) )
+            handle, err = azEvHub.hub.Receive( azEvHub.receiverCtx, partitionId, cb, evhub.ReceiveWithLatestOffset( ) )
             if err != nil {
                 return err
             }
         } else {
-            handle, err := azEvHub.hub.Receive( azEvHub.receiverCtx, partitionId, cb, evhub.ReceiveWithStartingOffset( checkPoint.Offset ) )
+            handle, err = azEvHub.hub.Receive( azEvHub.receiverCtx, partitionId, cb, evhub.ReceiveWithStartingOffset( checkPoint.Offset ) )
             if err != nil {
                 return err
             }
         }
 
-        handles[ idx ] = handle
+        defer func( ) {
+            handle.Close( azEvHub.receiverCtx )
+        }( )
     }
 
     azEvHub.receiversChan[ idx ] <- true
 
     for {
         select {
-            case <-receiverCtx.Done( ):
-                for _, handle := range handles {
-                    handle.Close( azEvHub.receiverCtx )
-                }
-
-                break
+            case <-azEvHub.receiverCtx.Done( ):
+                return nil
 
             default:
         }
     }
 
-    return
+    return nil
 }
