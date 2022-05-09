@@ -21,6 +21,7 @@ type azEvHubCtx struct {
     receiverCtx         context.Context
 
     receiversChan    [ ]chan bool
+    consumerGroups   [ ]string
 
     stats              *stats.Stats
     statsCtx            context.Context
@@ -36,7 +37,7 @@ type AzEvHub struct {
     ConnStr             string
     NameSpace           string
     TopicName           string
-    ConsumerGroup       string
+    ConsumerGroupPrefix string
     PropName            string
 
     PersistDir          string

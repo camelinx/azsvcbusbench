@@ -158,7 +158,8 @@ func ( azEvHub *AzEvHub )Start( ) {
     azEvHub.stats.StartDumper( )
 
     if !azEvHub.SenderOnly {
-        azEvHub.receiversChan = make( [ ]chan bool, azEvHub.TotReceivers )
+        azEvHub.receiversChan  = make( [ ]chan bool, azEvHub.TotReceivers )
+        azEvHub.consumerGroups = make( [ ]string, azEvHub.TotReceivers )
         azEvHub.wg.Add( azEvHub.TotReceivers )
         for i := 0; i < azEvHub.TotReceivers; i++ {
             azEvHub.receiversChan[ i ] = make( chan bool )
@@ -341,6 +342,19 @@ func ( azEvHub *AzEvHub )closeReceiver( idx int )( err error ) {
     return nil
 }
 
+func ( azEvHub *AzEvHub )getConsumerGroupForReceiver( idx int )( string ) {
+    if len( azEvHub.consumerGroups[ idx ] ) == 0 {
+        if len( azEvHub.ConsumerGroupPrefix ) > 0 {
+            azEvHub.consumerGroups[ idx ] = azEvHub.ConsumerGroupPrefix + fmt.Sprint( idx )
+        } else {
+            azEvHub.consumerGroups[ idx ] = evhub.DefaultConsumerGroup
+        }
+    }
+
+
+    return azEvHub.consumerGroups[ idx ]
+}
+
 func ( azEvHub *AzEvHub )startReceiver( idx int )( err error ) {
     err = azEvHub.newReceiver( idx )
     if err != nil {
@@ -356,25 +370,26 @@ func ( azEvHub *AzEvHub )startReceiver( idx int )( err error ) {
         return err
     }
 
+    consumerGroup := azEvHub.getConsumerGroupForReceiver( idx )
+
     cb := func( ctx context.Context, event *evhub.Event )( err error ) {
         return azEvHub.receivedMessageCallback( idx, event )
     }
 
-    for _, partitionId := range runtimeInfo.PartitionIDs {
-        checkPoint, err := azEvHub.Read( azEvHub.NameSpace, azEvHub.TopicName, azEvHub.ConsumerGroup, partitionId )
+    receiveOpts := [ ]evhub.ReceiveOption{ evhub.ReceiveWithConsumerGroup( consumerGroup ) }
 
-        var handle *evhub.ListenerHandle
+    for _, partitionId := range runtimeInfo.PartitionIDs {
+        checkPoint, err := azEvHub.Read( azEvHub.NameSpace, azEvHub.TopicName, consumerGroup, partitionId )
 
         if err != nil || checkPoint.Offset == evhub_persist.StartOfStream {
-            handle, err = azEvHub.hub.Receive( azEvHub.receiverCtx, partitionId, cb, evhub.ReceiveWithLatestOffset( ) )
-            if err != nil {
-                return err
-            }
+            receiveOpts = append( receiveOpts, evhub.ReceiveWithLatestOffset( ) )
         } else {
-            handle, err = azEvHub.hub.Receive( azEvHub.receiverCtx, partitionId, cb, evhub.ReceiveWithStartingOffset( checkPoint.Offset ) )
-            if err != nil {
-                return err
-            }
+            receiveOpts = append( receiveOpts, evhub.ReceiveWithStartingOffset( checkPoint.Offset ) )
+        }
+
+        handle, err := azEvHub.hub.Receive( azEvHub.receiverCtx, partitionId, cb, receiveOpts... )
+        if err != nil {
+            return err
         }
 
         defer func( ) {
