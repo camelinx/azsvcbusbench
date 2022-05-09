@@ -351,11 +351,11 @@ func ( azEvHub *AzEvHub )startReceiver( idx int )( err error ) {
     }
 
     for _, partitionId := range runtimeInfo.PartitionIDs {
-        checkPoint, err := azEvHub.Read( azEvHub.NameSpace, azEvHub.Name, azEvHub.ConsumerGroup, partitionId )
+        checkPoint, err := azEvHub.Read( azEvHub.NameSpace, azEvHub.TopicName, azEvHub.ConsumerGroup, partitionId )
 
         var handle *evhub.ListenerHandle
 
-        if err != nil {
+        if err != nil || checkPoint.Offset == evhub_persist.StartOfStream {
             handle, err = azEvHub.hub.Receive( azEvHub.receiverCtx, partitionId, cb, evhub.ReceiveWithLatestOffset( ) )
             if err != nil {
                 return err

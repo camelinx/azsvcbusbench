@@ -15,9 +15,8 @@ var (
 
     connStr     = flag.String( "conn-string", "", "Connection string to access event hub" )
     nameSpace   = flag.String( "namespace", "", "Name Space" )
-    name        = flag.String( "name", "", "Name" )
-    consumerGrp = flag.String( "consumer-group", "$Default", "Consumer Group" )
     topicName   = flag.String( "topic-name", "", "Topic to subscribe to" )
+    consumerGrp = flag.String( "consumer-group", "$Default", "Consumer Group" )
     propName    = flag.String( "property-name", "senderid", "Property name" )
     totSndrs    = flag.Int( "total-senders", 2, "Total senders" )
     totRcvrs    = flag.Int( "total-receivers", 2, "Total receivers" )
@@ -54,9 +53,8 @@ func main( ) {
     }
 
     setupString( &azevhubBench.NameSpace, nameSpace, "AZEVHUB_NAME_SPACE" )
-    setupString( &azevhubBench.Name, name, "AZEVHUB_NAME" )
-    setupString( &azevhubBench.ConsumerGroup, consumerGrp, "AZEVHUB_CONSUMER_GROUP" )
     setupString( &azevhubBench.TopicName, topicName, "AZEVHUB_TOPIC_NAME" )
+    setupString( &azevhubBench.ConsumerGroup, consumerGrp, "AZEVHUB_CONSUMER_GROUP" )
     setupString( &azevhubBench.PropName, propName, "AZEVHUB_PROP_NAME" )
 
     setupInt( &azevhubBench.TotSenders, totSndrs, "AZEVHUB_TOTAL_SENDERS" )

@@ -34,9 +34,8 @@ type azEvHubCtx struct {
 type AzEvHub struct {
     ConnStr             string
     NameSpace           string
-    Name                string
-    ConsumerGroup       string
     TopicName           string
+    ConsumerGroup       string
     PropName            string
 
     PersistDir          string
