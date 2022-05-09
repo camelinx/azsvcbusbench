@@ -14,7 +14,8 @@ import (
 )
 
 const (
-    idxPropName = "senderIdx"
+    testIdPropName  = "testId"
+    idxPropName     = "senderIdx"
 )
 
 var (
@@ -172,6 +173,7 @@ func ( azSvcBus *AzSvcBus )sendMessage( idx int )( err error ) {
 
     appProps := map[ string ]interface{ }{
         azSvcBus.PropName : id,
+        testIdPropName    : azSvcBus.TestId,
         idxPropName       : realIdx,
     }
 
@@ -320,6 +322,14 @@ func ( azSvcBus *AzSvcBus )receivedMessageCallback( idx int, message *azserviceb
     if err != nil {
         glog.Errorf( "%v: Failed to parse message, error = %v", id, err )
         return fmt.Errorf( "%v: Failed to parse message, error = %v", id, err )
+    }
+
+    if testIdPropVal, exists := message.ApplicationProperties[ testIdPropName ]; exists {
+        testId, ok := testIdPropVal.( string )
+        if !ok || testId != azSvcBus.TestId {
+            glog.Errorf( "%v: Invalid test id in message application properties", id )
+            return fmt.Errorf( "%v: Invalid test id in message application properties", id )
+        }
     }
 
     if senderIdxPropVal, exists := message.ApplicationProperties[ idxPropName ]; exists {

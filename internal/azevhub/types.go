@@ -32,6 +32,7 @@ type azEvHubCtx struct {
 }
 
 type AzEvHub struct {
+    TestId              string
     ConnStr             string
     NameSpace           string
     TopicName           string

@@ -13,6 +13,7 @@ import (
 var (
     version     string
 
+    testId      = flag.String( "test-id", "", "Test id" )
     connStr     = flag.String( "conn-string", "", "Connection string to access event hub" )
     nameSpace   = flag.String( "namespace", "", "Name Space" )
     topicName   = flag.String( "topic-name", "", "Topic to subscribe to" )
@@ -46,6 +47,8 @@ func main( ) {
     if azevhubBench == nil {
         glog.Fatalf( "Failed to initialize event hub bench" )
     }
+
+    setupString( &azevhubBench.TestId, testId, "AZEVHUB_TEST_ID" )
 
     setupString( &azevhubBench.ConnStr, connStr, "AZEVHUB_CONN_STR" )
     if 0 == len( azevhubBench.ConnStr ) {

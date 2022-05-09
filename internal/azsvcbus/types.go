@@ -28,6 +28,7 @@ type azSvcBusCtx struct {
 }
 
 type AzSvcBus struct {
+    TestId              string
     ConnStr             string
     TopicName           string
     SubName             string

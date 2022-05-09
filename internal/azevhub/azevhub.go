@@ -17,7 +17,8 @@ import (
 )
 
 const (
-    idxPropName = "senderIdx"
+    testIdPropName  = "testId"
+    idxPropName     = "senderIdx"
 )
 
 var (
@@ -209,6 +210,7 @@ func ( azEvHub *AzEvHub )sendMessage( idx int )( err error ) {
 
     appProps := map[ string ]interface{ }{
         azEvHub.PropName  : id,
+        testIdPropName    : azEvHub.TestId,
         idxPropName       : realIdx,
     }
 
@@ -227,7 +229,7 @@ func ( azEvHub *AzEvHub )sendMessage( idx int )( err error ) {
 
     err = azEvHub.hub.Send( azEvHub.senderCtx, event )
     if err != nil {
-        glog.Errorf( "%v: Failed to send message, error = %v", id, err )
+        glog.Errorf( "%v: Failed to send event, error = %v", id, err )
         return err
     }
 
@@ -307,17 +309,25 @@ func ( azEvHub *AzEvHub )receivedMessageCallback( idx int, event *evhub.Event )(
         return fmt.Errorf( "%v: Failed to parse message, error = %v", id, err )
     }
 
+    if testIdPropVal, exists := event.Properties[ testIdPropName ]; exists {
+        testId, ok := testIdPropVal.( string )
+        if !ok || testId != azEvHub.TestId {
+            glog.Errorf( "%v: Invalid test id in event properties", id )
+            return fmt.Errorf( "%v: Invalid test id in event properties", id )
+        }
+    }
+
     if senderIdxPropVal, exists := event.Properties[ idxPropName ]; exists {
         senderIdx, ok := senderIdxPropVal.( int64 )
         if ok {
             azEvHub.stats.UpdateReceiverStat( realIdx, int( senderIdx ), uint64( msgList.Count ), uint64( msgList.GetLatency( ) ) )
         } else {
-            glog.Errorf( "%v: Invalid sender index in message application properties", id )
-            return fmt.Errorf( "%v: Invalid sender index in message application properties", id )
+            glog.Errorf( "%v: Invalid sender index in event properties", id )
+            return fmt.Errorf( "%v: Invalid sender index in event properties", id )
         }
     } else {
-        glog.Errorf( "%v: Did not find sender index in message application properties", id )
-        return fmt.Errorf( "%v: Did not find sender index in message application properties", id )
+        glog.Errorf( "%v: Did not find sender index in event properties", id )
+        return fmt.Errorf( "%v: Did not find sender index in event properties", id )
     }
 
     return nil

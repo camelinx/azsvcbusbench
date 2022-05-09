@@ -13,6 +13,7 @@ import (
 var (
     version     string
 
+    testId      = flag.String( "test-id", "", "Test id" )
     connStr     = flag.String( "conn-string", "", "Connection string to access service bus" )
     topicName   = flag.String( "topic-name", "", "Topic to subscribe to" )
     subName     = flag.String( "subscription-name", "", "Subscription name" )
@@ -45,6 +46,8 @@ func main( ) {
     if azsvcbusBench == nil {
         glog.Fatalf( "Failed to initialize service bus bench" )
     }
+
+    setupString( &azsvcbusBench.TestId, testId, "AZSVCBUS_TEST_ID" )
 
     setupString( &azsvcbusBench.ConnStr, connStr, "AZSVCBUS_CONN_STR" )
     if 0 == len( azsvcbusBench.ConnStr ) {
