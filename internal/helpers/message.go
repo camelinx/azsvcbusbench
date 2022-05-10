@@ -51,7 +51,7 @@ type Msgs struct {
 }
 
 func GetCurTimeStamp( )( int64 ) {
-    return time.Now( ).Unix( )
+    return time.Now( ).UnixMilli( )
 }
 
 func getRandomInt( n int )( r int ) {
