@@ -20,7 +20,7 @@ type azEvHubCtx struct {
     senderCtx           context.Context
     receiverCtx         context.Context
 
-    receiversChan    [ ]chan bool
+    receiversChan    [ ]chan error
     consumerGroups   [ ]string
 
     stats              *stats.Stats

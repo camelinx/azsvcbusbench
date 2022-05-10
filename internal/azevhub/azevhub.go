@@ -158,23 +158,20 @@ func ( azEvHub *AzEvHub )Start( ) {
     azEvHub.stats.StartDumper( )
 
     if !azEvHub.SenderOnly {
-        azEvHub.receiversChan  = make( [ ]chan bool, azEvHub.TotReceivers )
+        azEvHub.receiversChan  = make( [ ]chan error, azEvHub.TotReceivers )
         azEvHub.consumerGroups = make( [ ]string, azEvHub.TotReceivers )
         azEvHub.wg.Add( azEvHub.TotReceivers )
         for i := 0; i < azEvHub.TotReceivers; i++ {
-            azEvHub.receiversChan[ i ] = make( chan bool )
+            azEvHub.receiversChan[ i ] = make( chan error )
 
             go func( idx int ) {
                 defer azEvHub.wg.Done( )
-                err = azEvHub.startReceiver( idx )
-                if err != nil {
-                    azEvHub.receiversChan[ idx ] <- false
-                }
+                azEvHub.startReceiver( idx )
             }( i )
 
-            receiverRunning := <-azEvHub.receiversChan[ i ]
-            if !receiverRunning {
-                glog.Fatalf( "failed to start receiver: %v", i )
+            receiverErr := <-azEvHub.receiversChan[ i ]
+            if receiverErr != nil {
+                glog.Fatalf( "failed to start receiver: %v", receiverErr )
             }
         }
     }
@@ -355,10 +352,11 @@ func ( azEvHub *AzEvHub )getConsumerGroupForReceiver( idx int )( string ) {
     return azEvHub.consumerGroups[ idx ]
 }
 
-func ( azEvHub *AzEvHub )startReceiver( idx int )( err error ) {
-    err = azEvHub.newReceiver( idx )
+func ( azEvHub *AzEvHub )startReceiver( idx int ) {
+    err := azEvHub.newReceiver( idx )
     if err != nil {
-        return err
+        azEvHub.receiversChan[ idx ] <- err
+        return
     }
 
     defer func( ) {
@@ -367,7 +365,8 @@ func ( azEvHub *AzEvHub )startReceiver( idx int )( err error ) {
 
     runtimeInfo, err := azEvHub.hub.GetRuntimeInformation( azEvHub.receiverCtx )
     if err != nil {
-        return err
+        azEvHub.receiversChan[ idx ] <- err
+        return
     }
 
     consumerGroup := azEvHub.getConsumerGroupForReceiver( idx )
@@ -389,7 +388,8 @@ func ( azEvHub *AzEvHub )startReceiver( idx int )( err error ) {
 
         handle, err := azEvHub.hub.Receive( azEvHub.receiverCtx, partitionId, cb, receiveOpts... )
         if err != nil {
-            return err
+            azEvHub.receiversChan[ idx ] <- err
+            return
         }
 
         defer func( ) {
@@ -397,16 +397,16 @@ func ( azEvHub *AzEvHub )startReceiver( idx int )( err error ) {
         }( )
     }
 
-    azEvHub.receiversChan[ idx ] <- true
+    azEvHub.receiversChan[ idx ] <- nil
 
     for {
         select {
             case <-azEvHub.receiverCtx.Done( ):
-                return nil
+                return
 
             default:
         }
     }
 
-    return nil
+    return
 }
