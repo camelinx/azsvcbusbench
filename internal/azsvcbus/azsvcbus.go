@@ -6,6 +6,7 @@ import (
     "context"
     "os"
     "fmt"
+    "strconv"
 
     "github.com/golang/glog"
     "github.com/Azure/azure-sdk-for-go/sdk/messaging/azservicebus"
@@ -16,18 +17,20 @@ import (
 const (
     testIdPropName  = "testId"
     idxPropName     = "senderIdx"
+    trackPropName   = "track"
 )
 
 var (
     msgContentType = "application/json"
+    strFalse       = strconv.FormatBool( false )
 )
 
 func NewAzSvcBus( )( *AzSvcBus ) {
     return &AzSvcBus {
         Index       : 0,
         azSvcBusCtx : azSvcBusCtx {
-            wg    : &sync.WaitGroup{ },
-            stats : stats.NewStats( nil, nil ),
+            wg     : &sync.WaitGroup{ },
+            stats  : stats.NewStats( nil, nil ),
         },
     }
 }
@@ -102,10 +105,12 @@ func ( azSvcBus *AzSvcBus )Start( ) {
 
     azSvcBus.client = client
 
-    ctx, _             := context.WithTimeout( context.Background( ), azSvcBus.Duration )
+    realDuration := azSvcBus.Duration + azSvcBus.WarmupDuration
+
+    ctx, _             := context.WithTimeout( context.Background( ), realDuration )
     azSvcBus.senderCtx  = ctx
 
-    ctx, cancel := context.WithTimeout( context.Background( ), azSvcBus.Duration + ( 2 * time.Minute ) )
+    ctx, cancel := context.WithTimeout( context.Background( ), realDuration + ( 2 * time.Minute ) )
     defer func( ) {
         cancel( )
     }( )
@@ -151,8 +156,28 @@ func ( azSvcBus *AzSvcBus )Start( ) {
         }
     }
 
+    azSvcBus.wg.Add( 1 )
+    go func( ) {
+        defer azSvcBus.wg.Done( )
+        azSvcBus.trackWarmup( )
+    }( )
+
     azSvcBus.wg.Wait( )
     azSvcBus.stats.StopDumper( )
+}
+
+func ( azSvcBus *AzSvcBus )trackWarmup( ) {
+    warmupTimer := time.NewTimer( azSvcBus.WarmupDuration )
+
+    select {
+        case <-warmupTimer.C:
+            azSvcBus.trackTest = true
+            return
+
+        case <-azSvcBus.senderCtx.Done( ):
+            warmupTimer.Stop( )
+            return
+    }
 }
 
 func ( azSvcBus *AzSvcBus )getSenderIdFromIdx( idx int )( id string, realIdx int, err error ) {
@@ -175,6 +200,7 @@ func ( azSvcBus *AzSvcBus )sendMessage( idx int )( err error ) {
         azSvcBus.PropName : id,
         testIdPropName    : azSvcBus.TestId,
         idxPropName       : realIdx,
+        trackPropName     : strconv.FormatBool( azSvcBus.trackTest ),
     }
 
     azsvcbusmsg := &azservicebus.Message{
@@ -197,7 +223,9 @@ func ( azSvcBus *AzSvcBus )sendMessage( idx int )( err error ) {
         return err
     }
 
-    azSvcBus.stats.UpdateSenderStat( realIdx, uint64( azSvcBus.MsgsPerSend ) )
+    if azSvcBus.trackTest {
+        azSvcBus.stats.UpdateSenderStat( realIdx, uint64( azSvcBus.MsgsPerSend ) )
+    }
 
     return nil
 }
@@ -299,6 +327,14 @@ func ( azSvcBus *AzSvcBus )receivedMessageCallback( idx int, message *azserviceb
     if message.ContentType != nil && *message.ContentType != msgContentType {
         glog.Errorf( "%v: Ignoring message with unknown content type %v", id, message.ContentType )
         return fmt.Errorf( "%v: Ignoring message with unknown content type %v", id, message.ContentType )
+    }
+
+    trackVal, exists := message.ApplicationProperties[ trackPropName ]
+    if exists {
+        track, ok := trackVal.( string )
+        if ok && track == strFalse {
+            return nil
+        }
     }
 
     propVal, exists := message.ApplicationProperties[ azSvcBus.PropName ]

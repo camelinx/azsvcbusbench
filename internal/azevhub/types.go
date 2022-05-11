@@ -30,6 +30,8 @@ type azEvHubCtx struct {
     idGen              *helpers.IdGen
 
     wg                 *sync.WaitGroup
+
+    trackTest           bool
 }
 
 type AzEvHub struct {
@@ -53,6 +55,7 @@ type AzEvHub struct {
     SenderOnly          bool
     ReceiverOnly        bool
 
+    WarmupDuration      time.Duration
     Duration            time.Duration
     SendInterval        time.Duration
     ReceiveInterval     time.Duration

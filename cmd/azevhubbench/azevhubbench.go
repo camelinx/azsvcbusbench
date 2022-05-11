@@ -26,6 +26,7 @@ var (
     msgsPerRcv     = flag.Int( "messages-per-receive", 1, "Number of messages to get per receive call" )
     msgsPerSnd     = flag.Int( "messages-per-send", 1, "Number of messages to push per send call" )
     testTime       = flag.Duration( "test-duration", 5 * time.Minute, "Total test time" )
+    testWarmupTime = flag.Duration( "test-warmup-time", 1 * time.Minute, "Test warmup time" )
     sndrOnly       = flag.Bool( "sender-only", false, "Enable sender only" )
     rcvrOnly       = flag.Bool( "receiver-only", false, "Enable receiver only" )
     statIntvl      = flag.Duration( "stats-dump-interval", 30 * time.Second, "Interval after statistics will be dumped" )
@@ -69,6 +70,7 @@ func main( ) {
     setupBool( &azevhubBench.ReceiverOnly, rcvrOnly, "AZEVHUB_RECEIVER_ONLY" )
 
     setupDuration( &azevhubBench.Duration, testTime, "AZEVHUB_TEST_DURATION" )
+    setupDuration( &azevhubBench.WarmupDuration, testWarmupTime, "AZSVCBUS_TEST_WARMUP_TIME" )
     setupDuration( &azevhubBench.SendInterval, sndIntvl, "AZEVHUB_SEND_INTERVAL" )
     setupDuration( &azevhubBench.ReceiveInterval, rcvIntvl, "AZEVHUB_RECEIVE_INTERVAL" )
     setupDuration( &azevhubBench.StatDumpInterval, statIntvl, "AZEVHUB_STATS_DUMP_INTERVAL" )

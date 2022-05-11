@@ -25,6 +25,8 @@ type azSvcBusCtx struct {
     idGen              *helpers.IdGen
 
     wg                 *sync.WaitGroup
+
+    trackTest           bool
 }
 
 type AzSvcBus struct {
@@ -45,6 +47,7 @@ type AzSvcBus struct {
     SenderOnly          bool
     ReceiverOnly        bool
 
+    WarmupDuration      time.Duration
     Duration            time.Duration
     SendInterval        time.Duration
     ReceiveInterval     time.Duration

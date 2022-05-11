@@ -6,6 +6,7 @@ import (
     "context"
     "os"
     "fmt"
+    "strconv"
 
     "github.com/golang/glog"
 
@@ -19,18 +20,20 @@ import (
 const (
     testIdPropName  = "testId"
     idxPropName     = "senderIdx"
+    trackPropName   = "track"
 )
 
 var (
     msgContentType = "application/json"
+    strFalse       = strconv.FormatBool( false )
 )
 
 func NewAzEvHub( )( *AzEvHub ) {
     return &AzEvHub {
         Index       : 0,
         azEvHubCtx : azEvHubCtx {
-            wg    : &sync.WaitGroup{ },
-            stats : stats.NewStats( nil, nil ),
+            wg     : &sync.WaitGroup{ },
+            stats  : stats.NewStats( nil, nil ),
         },
     }
 }
@@ -130,10 +133,12 @@ func ( azEvHub *AzEvHub )Start( ) {
 
     azEvHub.hub = hub
 
-    ctx, _             := context.WithTimeout( context.Background( ), azEvHub.Duration )
+    realDuration := azEvHub.Duration + azEvHub.WarmupDuration
+
+    ctx, _             := context.WithTimeout( context.Background( ), realDuration )
     azEvHub.senderCtx  = ctx
 
-    ctx, cancel := context.WithTimeout( context.Background( ), azEvHub.Duration + ( 2 * time.Minute ) )
+    ctx, cancel := context.WithTimeout( context.Background( ), realDuration + ( 2 * time.Minute ) )
     defer func( ) {
         cancel( )
     }( )
@@ -186,8 +191,28 @@ func ( azEvHub *AzEvHub )Start( ) {
         }
     }
 
+    azEvHub.wg.Add( 1 )
+    go func( ) {
+        defer azEvHub.wg.Done( )
+        azEvHub.trackWarmup( )
+    }( )
+
     azEvHub.wg.Wait( )
     azEvHub.stats.StopDumper( )
+}
+
+func ( azEvHub *AzEvHub )trackWarmup( ) {
+    warmupTimer := time.NewTimer( azEvHub.WarmupDuration )
+
+    select {
+        case <-warmupTimer.C:
+            azEvHub.trackTest = true
+            return
+
+        case <-azEvHub.senderCtx.Done( ):
+            warmupTimer.Stop( )
+            return
+    }
 }
 
 func ( azEvHub *AzEvHub )getSenderIdFromIdx( idx int )( id string, realIdx int, err error ) {
@@ -210,6 +235,7 @@ func ( azEvHub *AzEvHub )sendMessage( idx int )( err error ) {
         azEvHub.PropName  : id,
         testIdPropName    : azEvHub.TestId,
         idxPropName       : realIdx,
+        trackPropName     : strconv.FormatBool( azEvHub.trackTest ),
     }
 
     event := &evhub.Event {
@@ -231,7 +257,9 @@ func ( azEvHub *AzEvHub )sendMessage( idx int )( err error ) {
         return err
     }
 
-    azEvHub.stats.UpdateSenderStat( realIdx, uint64( azEvHub.MsgsPerSend ) )
+    if azEvHub.trackTest {
+        azEvHub.stats.UpdateSenderStat( realIdx, uint64( azEvHub.MsgsPerSend ) )
+    }
 
     return nil
 }
@@ -287,6 +315,14 @@ func ( azEvHub *AzEvHub )receivedMessageCallback( idx int, event *evhub.Event )(
     if err != nil {
         glog.Errorf( "Failed to get index, error = %v", err )
         return err
+    }
+
+    trackVal, exists := event.Properties[ trackPropName ]
+    if exists {
+        track, ok := trackVal.( string )
+        if ok && track == strFalse {
+            return nil
+        }
     }
 
     propVal, exists := event.Properties[ azEvHub.PropName ]
