@@ -180,6 +180,7 @@ func ( azSvcBus *AzSvcBus )sendMessage( idx int )( err error ) {
     azsvcbusmsg := &azservicebus.Message{
         ApplicationProperties   : appProps,
         ContentType             : &msgContentType,
+        PartitionKey            : &id,
     }
 
     msg, err := azSvcBus.msgGen.GetMsgN( azSvcBus.MsgsPerSend )
