@@ -39,15 +39,16 @@ type MsgGen struct {
 }
 
 type Msg struct {
-    Current     int     `json:"current"`
-    Delta       int     `json:"delta"`
-    ClientIp    string  `json:"clientip"`
+    Current     int                         `json:"current"`
+    Delta       int                         `json:"delta"`
+    ClientIp    string                      `json:"clientip"`
+    Attributes  map[ string ]interface{ }   `json:"attrs,omitempty"`
 }
 
 type Msgs struct {
-    List     [ ]Msg     `json:"messages"`
-    Count       int     `json:"count"`
-    TimeStamp   int64   `json:"ts"`
+    List     [ ]Msg                         `json:"messages"`
+    Count       int                         `json:"count"`
+    TimeStamp   int64                       `json:"ts"`
 }
 
 func GetCurTimeStamp( )( int64 ) {
@@ -112,12 +113,13 @@ func InitMsgGen( file io.Reader, ipCount int, ipClass Ipv4AddrClass, msgType Msg
     return msgGen, nil
 }
 
-func ( msgGen *MsgGen )getMsgInst( )( msgInst *Msg, err error ) {
+func ( msgGen *MsgGen )getMsgInst( attributes map[ string ]interface{ } )( msgInst *Msg, err error ) {
     current, delta := getCounters( )
 
     msgInst = &Msg {
         Current     :   current,
         Delta       :   delta,
+        Attributes  :   attributes,
     }
 
     msgInst.ClientIp, err = msgGen.ipv4Gen.GetRandomIp( )
@@ -128,7 +130,7 @@ func ( msgGen *MsgGen )getMsgInst( )( msgInst *Msg, err error ) {
     return msgInst, nil
 }
 
-func ( msgGen *MsgGen )GetMsgN( n int )( msg [ ]byte, err error ) {
+func ( msgGen *MsgGen )GetMsgN( n int, attributes map[ string ]interface{ } )( msg [ ]byte, err error ) {
     msgList := &Msgs {
         Count       :   n,
         List        :   make( [ ]Msg, n ),
@@ -136,7 +138,7 @@ func ( msgGen *MsgGen )GetMsgN( n int )( msg [ ]byte, err error ) {
     }
 
     for i := 0; i < n; i++ {
-        msgInst, err := msgGen.getMsgInst( )
+        msgInst, err := msgGen.getMsgInst( attributes )
         if err != nil {
             return nil, err
         }
@@ -151,8 +153,8 @@ func ( msgGen *MsgGen )GetMsgN( n int )( msg [ ]byte, err error ) {
     return nil, fmt.Errorf( "failed to generate message" )
 }
 
-func ( msgGen *MsgGen )GetMsg( )( msg [ ]byte, err error ) {
-    return msgGen.GetMsgN( 1 )
+func ( msgGen *MsgGen )GetMsg( attributes map[ string ]interface{ } )( msg [ ]byte, err error ) {
+    return msgGen.GetMsgN( 1, attributes )
 }
 
 type MsgCb func( *Msg )( error )
