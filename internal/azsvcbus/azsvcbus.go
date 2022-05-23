@@ -209,7 +209,7 @@ func ( azSvcBus *AzSvcBus )sendMessage( idx int )( err error ) {
         PartitionKey            : &id,
     }
 
-    msg, err := azSvcBus.msgGen.GetMsgN( azSvcBus.MsgsPerSend )
+    msg, err := azSvcBus.msgGen.GetMsgN( azSvcBus.MsgsPerSend, nil )
     if err != nil {
         glog.Errorf( "%v: Failed to get message, error = %v", id, err )
         return err

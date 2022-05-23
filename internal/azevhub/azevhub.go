@@ -243,7 +243,7 @@ func ( azEvHub *AzEvHub )sendMessage( idx int )( err error ) {
         PartitionKey : &id,
     }
 
-    msg, err := azEvHub.msgGen.GetMsgN( azEvHub.MsgsPerSend )
+    msg, err := azEvHub.msgGen.GetMsgN( azEvHub.MsgsPerSend, nil )
     if err != nil {
         glog.Errorf( "%v: Failed to get message, error = %v", id, err )
         return err
