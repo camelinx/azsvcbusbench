@@ -158,6 +158,10 @@ func ( msgGen *MsgGen )getMsgNInternal( n int, attributes map[ string ]interface
     return nil, nil, fmt.Errorf( "failed to generate message" )
 }
 
+func ( msgGen *MsgGen )GetRandomMsgKey( )( key string, err error ) {
+    return msgGen.ipv4Gen.GetRandomIp( )
+}
+
 func ( msgGen *MsgGen )GetMsgN( n int, attributes map[ string ]interface{ } )( msg [ ]byte, err error ) {
     msg, _, err = msgGen.getMsgNInternal( n, attributes )
     if err != nil {
