@@ -82,6 +82,14 @@ func testInitMsgFromReader( )( msgGen *MsgGen, err error ) {
     return InitMsgGen( strReader, 0, Ipv4AddrClassAny, MsgTypeJson )
 }
 
+func ( msgGen *MsgGen )matchKeys( t *testing.T, msgList *Msgs, keys [ ]string ) {
+    for i, k := range keys {
+        if k != msgList.List[ i ].ClientIp {
+            t.Fatalf( "key %v does not match with %v", k, msgList.List[ i ].ClientIp )
+        }
+    }
+}
+
 func ( msgGen *MsgGen )test( t *testing.T, attributes map[ string ]interface{ } ) {
     msgCallback := func( msg *Msg )( err error ) {
         return msgGen.ValidateMsg( msg )
@@ -98,6 +106,18 @@ func ( msgGen *MsgGen )test( t *testing.T, attributes map[ string ]interface{ } 
             t.Fatalf( "ParseMsg - invalid message %v", string( msg ) )
         }
 
+        msg, key, err := msgGen.GetMsgWithKey( attributes )
+        if err != nil {
+            t.Fatalf( "GetMsgWithKey - failed to get message" )
+        }
+
+        msgList, err := msgGen.ParseMsg( msg, nil )
+        if err != nil {
+            t.Fatalf( "ParseMsg - invalid message %v", string( msg ) )
+        }
+
+        msgGen.matchKeys( t, msgList, [ ]string{ key } )
+
         msg, err = msgGen.GetMsgN( msgConst, attributes ) 
         if err != nil {
             t.Fatalf( "GetMsgN - failed to get message" )
@@ -107,6 +127,18 @@ func ( msgGen *MsgGen )test( t *testing.T, attributes map[ string ]interface{ } 
         if err != nil {
             t.Fatalf( "ParseMsg - invalid message %v", string( msg ) )
         }
+
+        msg, keys, err := msgGen.GetMsgNWithKeys( msgConst, attributes ) 
+        if err != nil {
+            t.Fatalf( "GetMsgN - failed to get message" )
+        }
+
+        msgList, err = msgGen.ParseMsg( msg, msgCallback )
+        if err != nil {
+            t.Fatalf( "ParseMsg - invalid message %v", string( msg ) )
+        }
+
+        msgGen.matchKeys( t, msgList, keys )
     }
 
     msg, err := msgGen.GetMsg( attributes )
@@ -119,6 +151,18 @@ func ( msgGen *MsgGen )test( t *testing.T, attributes map[ string ]interface{ } 
         t.Fatalf( "ParseMsg - invalid message %v", string( msg ) )
     }
 
+    msg, key, err := msgGen.GetMsgWithKey( attributes )
+    if err != nil {
+        t.Fatalf( "GetMsgWithKey - failed to get message" )
+    }
+
+    msgList, err := msgGen.ParseMsg( msg, nil )
+    if err != nil {
+        t.Fatalf( "ParseMsg - invalid message %v", string( msg ) )
+    }
+
+    msgGen.matchKeys( t, msgList, [ ]string{ key } )
+
     msg, err = msgGen.GetMsgN( msgConst, attributes )
     if err != nil {
         t.Fatalf( "GetMsgN - failed to get message" )
@@ -129,10 +173,27 @@ func ( msgGen *MsgGen )test( t *testing.T, attributes map[ string ]interface{ } 
         t.Fatalf( "ParseMsg - invalid message %v", string( msg ) )
     }
 
+    msg, keys, err := msgGen.GetMsgNWithKeys( msgConst, attributes ) 
+    if err != nil {
+        t.Fatalf( "GetMsgN - failed to get message" )
+    }
+
+    msgList, err = msgGen.ParseMsg( msg, msgCallback )
+    if err != nil {
+        t.Fatalf( "ParseMsg - invalid message %v", string( msg ) )
+    }
+
+    msgGen.matchKeys( t, msgList, keys )
+
     msgGen.msgType = MsgTypeMin
     _, err = msgGen.GetMsg( attributes )
     if err == nil {
         t.Fatalf( "GetMsg - succeeded for invalid message type lower bound" )
+    }
+
+    _, _, err = msgGen.GetMsgWithKey( attributes )
+    if err == nil {
+        t.Fatalf( "GetMsgWithKey - succeeded for invalid message type lower bound" )
     }
 
     _, err = msgGen.ParseMsg( msg, msgCallback )
@@ -143,6 +204,11 @@ func ( msgGen *MsgGen )test( t *testing.T, attributes map[ string ]interface{ } 
     _, err = msgGen.GetMsgN( msgConst, attributes )
     if err == nil {
         t.Fatalf( "GetMsgN - succeeded for invalid message type lower bound" )
+    }
+
+    _, _, err = msgGen.GetMsgNWithKeys( msgConst, attributes )
+    if err == nil {
+        t.Fatalf( "GetMsgNWithKeys - succeeded for invalid message type lower bound" )
     }
 
     _, err = msgGen.ParseMsg( msg, msgCallback )
@@ -156,6 +222,11 @@ func ( msgGen *MsgGen )test( t *testing.T, attributes map[ string ]interface{ } 
         t.Fatalf( "GetMsg - succeeded for invalid message type upper bound" )
     }
 
+    _, _, err = msgGen.GetMsgWithKey( attributes )
+    if err == nil {
+        t.Fatalf( "GetMsgWithKey - succeeded for invalid message type lower bound" )
+    }
+
     _, err = msgGen.ParseMsg( msg, msgCallback )
     if err == nil {
         t.Fatalf( "ParseMsg - succeeded for invalid message type upper bound" )
@@ -164,6 +235,11 @@ func ( msgGen *MsgGen )test( t *testing.T, attributes map[ string ]interface{ } 
     _, err = msgGen.GetMsgN( msgConst, attributes )
     if err == nil {
         t.Fatalf( "GetMsgN - succeeded for invalid message type lower bound" )
+    }
+
+    _, _, err = msgGen.GetMsgNWithKeys( msgConst, attributes )
+    if err == nil {
+        t.Fatalf( "GetMsgNWithKeys - succeeded for invalid message type lower bound" )
     }
 
     _, err = msgGen.ParseMsg( msg, msgCallback )

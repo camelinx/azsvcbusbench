@@ -130,8 +130,8 @@ func ( msgGen *MsgGen )getMsgInst( attributes map[ string ]interface{ } )( msgIn
     return msgInst, nil
 }
 
-func ( msgGen *MsgGen )GetMsgN( n int, attributes map[ string ]interface{ } )( msg [ ]byte, err error ) {
-    msgList := &Msgs {
+func ( msgGen *MsgGen )getMsgNInternal( n int, attributes map[ string ]interface{ } )( msg [ ]byte, msgList *Msgs, err error ) {
+    msgList = &Msgs {
         Count       :   n,
         List        :   make( [ ]Msg, n ),
         TimeStamp   :   GetCurTimeStamp( ),
@@ -140,21 +140,58 @@ func ( msgGen *MsgGen )GetMsgN( n int, attributes map[ string ]interface{ } )( m
     for i := 0; i < n; i++ {
         msgInst, err := msgGen.getMsgInst( attributes )
         if err != nil {
-            return nil, err
+            return nil, nil, err
         }
 
         msgList.List[ i ] = *msgInst
     }
 
     if msgGen.msgType > MsgTypeMin && msgGen.msgType < MsgTypeMax {
-        return msgTypeGenerators[ msgGen.msgType ]( msgList )
+        msg, err = msgTypeGenerators[ msgGen.msgType ]( msgList )
+        if err != nil {
+            return nil, nil, err
+        }
+
+        return msg, msgList, nil
     }
 
-    return nil, fmt.Errorf( "failed to generate message" )
+    return nil, nil, fmt.Errorf( "failed to generate message" )
+}
+
+func ( msgGen *MsgGen )GetMsgN( n int, attributes map[ string ]interface{ } )( msg [ ]byte, err error ) {
+    msg, _, err = msgGen.getMsgNInternal( n, attributes )
+    if err != nil {
+        return nil, err
+    }
+
+    return msg, nil
+}
+
+func ( msgGen *MsgGen )GetMsgNWithKeys( n int, attributes map[ string ]interface{ } )( msg [ ]byte, keys [ ]string, err error ) {
+    msg, msgList, err := msgGen.getMsgNInternal( n, attributes )
+    if err != nil {
+        return nil, nil, err
+    }
+
+    keys = make( [ ]string, msgList.Count )
+    for i, msgInst := range msgList.List {
+        keys[ i ] = msgInst.ClientIp
+    }
+
+    return msg, keys, nil
 }
 
 func ( msgGen *MsgGen )GetMsg( attributes map[ string ]interface{ } )( msg [ ]byte, err error ) {
     return msgGen.GetMsgN( 1, attributes )
+}
+
+func ( msgGen *MsgGen )GetMsgWithKey( attributes map[ string ]interface{ } )( msg [ ]byte, key string, err error ) {
+    msg, keys, err := msgGen.GetMsgNWithKeys( 1, attributes )
+    if err != nil {
+        return nil, "", err
+    }
+
+    return msg, keys[ 0 ], nil
 }
 
 type MsgCb func( *Msg )( error )
