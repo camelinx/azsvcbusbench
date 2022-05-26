@@ -101,6 +101,11 @@ func ( azRedis *AzRedis )initIdGen( )( err error ) {
 }
 
 func ( azRedis *AzRedis )Start( ) {
+    if azRedis.TotSenders != azRedis.TotReceivers {
+        glog.Fatalf( "Number of senders and receivers must be equal" )
+        return
+    }
+
     azRedis.client = redis.NewClient(
         &redis.Options {
             Addr            :   azRedis.Host,
@@ -146,6 +151,11 @@ func ( azRedis *AzRedis )Start( ) {
     azRedis.stats.SetIds( azRedis.idGen.Block )
     azRedis.stats.SetStatsDumpInterval( azRedis.StatDumpInterval )
     azRedis.stats.StartDumper( )
+
+    azRedis.lookupC = make( [ ]chan *azRedisLookup, azRedis.TotReceivers )
+    for i := 0; i < azRedis.TotReceivers; i++ {
+        azRedis.lookupC[ i ] = make( chan *azRedisLookup, 4 )
+    }
 
     if !azRedis.SenderOnly {
         azRedis.wg.Add( azRedis.TotReceivers )
@@ -214,11 +224,17 @@ func ( azRedis *AzRedis )sendMessage( idx int )( err error ) {
         idxPropName     :   realIdx,
     }
 
+    lookup := &azRedisLookup {
+        timeStamp   :   helpers.GetCurTimeStamp( ),
+    }
+
     msg, key, err := azRedis.msgGen.GetMsgWithKey( nil )
     if err != nil {
         glog.Errorf( "%v: Failed to get message, error = %v", id, err )
         return err
     }
+
+    lookup.key = key
 
     message[ bodyKey ] = msg
 
@@ -227,6 +243,8 @@ func ( azRedis *AzRedis )sendMessage( idx int )( err error ) {
         glog.Errorf( "%v: Failed to send message, error = %v", id, err )
         return err
     }
+
+    azRedis.lookupC[ idx ] <- lookup
 
     if azRedis.trackTest {
         azRedis.stats.UpdateSenderStat( realIdx, 1 )
@@ -274,21 +292,16 @@ func ( azRedis *AzRedis )getReceiverIdFromIdx( idx int )( id string, realIdx int
     return azRedis.idGen.Block[ realIdx ], realIdx, nil
 }
 
-type azSvcMsgCb func( idx int, message map[ string ]string )( err error )
+type azSvcMsgCb func( idx int, message map[ string ]string, lookup *azRedisLookup )( err error )
 
-func ( azRedis *AzRedis )receiveMessages( idx int, cb azSvcMsgCb )( err error ) {
+func ( azRedis *AzRedis )receiveMessages( idx int, cb azSvcMsgCb, lookup *azRedisLookup )( err error ) {
     _, _, err = azRedis.getReceiverIdFromIdx( idx )
     if err != nil {
         glog.Errorf( "Failed to get index, error = %v", err )
         return err
     }
 
-    msgKey, err := azRedis.msgGen.GetRandomMsgKey( )
-    if err != nil {
-        glog.Errorf( "Failed to get message key, error = %v", err )
-    }
-
-    message, err := azRedis.client.HGetAll( azRedis.receiverCtx, msgKey ).Result( )
+    message, err := azRedis.client.HGetAll( azRedis.receiverCtx, lookup.key ).Result( )
     if err == nil && cb != nil {
         err = cb( idx, message )
         if err != nil {
@@ -299,7 +312,7 @@ func ( azRedis *AzRedis )receiveMessages( idx int, cb azSvcMsgCb )( err error ) 
     return nil
 }
 
-func ( azRedis *AzRedis )receivedMessageCallback( idx int, message map[ string ]string )( err error ) {
+func ( azRedis *AzRedis )receivedMessageCallback( idx int, message map[ string ]string, lookup azRedisLookup )( err error ) {
     id, realIdx, err := azRedis.getReceiverIdFromIdx( idx )
     if err != nil {
         glog.Errorf( "Failed to get index, error = %v", err )
@@ -331,6 +344,16 @@ func ( azRedis *AzRedis )receivedMessageCallback( idx int, message map[ string ]
     if err != nil {
         glog.Errorf( "%v: Failed to parse message, error = %v", id, err )
         return fmt.Errorf( "%v: Failed to parse message, error = %v", id, err )
+    }
+
+    if msgList.Count != 1 {
+        glog.Errorf( "%v: Not expecting more than 1 message", id )
+        return fmt.Errorf( "%v: Not expecting more than 1 message", id )
+    }
+
+    if msgList.TimeStamp < lookup.timeStamp {
+        glog.Errorf( "%v: Stale message", id )
+        return fmt.Errorf( "%v: Stale message", id )
     }
 
     testId, exists := message[ testIdPropName ]
@@ -374,14 +397,19 @@ func ( azRedis *AzRedis )startReceiver( idx int ) {
         azRedis.closeReceiver( idx )
     }( )
 
-    cb := func( idx int, message map[ string ]string )( err error ) {
-        return azRedis.receivedMessageCallback( idx, message )
+    cb := func( idx int, message map[ string ]string, lookup *azRedisLookup )( err error ) {
+        return azRedis.receivedMessageCallback( idx, message, lookup )
     }
 
     for {
-        err = azRedis.receiveMessages( idx, cb )
-        if err != nil {
-            break
+        select {
+            case lookup := <- azRedis.lookupC[ idx ]
+                err = azRedis.receiveMessages( idx, cb, lookup )
+                if err != nil {
+                    return
+                }
+
+            default:
         }
 
         time.Sleep( azRedis.ReceiveInterval )

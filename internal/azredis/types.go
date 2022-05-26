@@ -11,8 +11,15 @@ import (
     "github.com/azsvcbusbench/internal/stats"
 )
 
+type azRedisLookup struct {
+    key                 string
+    timeStamp           int64
+}
+
 type azRedisCtx struct {
     client             *redis.Client
+
+    lookupC          [ ]chan *azRedisLookup
 
     senderCtx           context.Context
     receiverCtx         context.Context
