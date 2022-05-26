@@ -97,6 +97,11 @@ func ( azSvcBus *AzSvcBus )initIdGen( )( err error ) {
 }
 
 func ( azSvcBus *AzSvcBus )Start( ) {
+    if azRedis.TotSenders != azRedis.TotReceivers {
+        glog.Fatalf( "Number of senders and receivers must be equal" )
+        return
+    }
+
     client, err := azservicebus.NewClientFromConnectionString( azSvcBus.ConnStr, nil )
     if err != nil {
         glog.Fatalf( "failed to setup Azure Service Bus client %v", err )

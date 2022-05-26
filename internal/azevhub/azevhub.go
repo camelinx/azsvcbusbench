@@ -117,6 +117,11 @@ func ( azEvHub *AzEvHub )setupCheckPointPersister( )( evhub_persist.CheckpointPe
 }
 
 func ( azEvHub *AzEvHub )Start( ) {
+    if azRedis.TotSenders != azRedis.TotReceivers {
+        glog.Fatalf( "Number of senders and receivers must be equal" )
+        return
+    }
+
     persister, err := azEvHub.setupCheckPointPersister( )
     if err != nil {
         glog.Fatalf( "failed to initialize checkpoint persister %v", err )
