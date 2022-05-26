@@ -18,8 +18,7 @@ var (
     topicName      = flag.String( "topic-name", "", "Topic to subscribe to" )
     subName        = flag.String( "subscription-name", "", "Subscription name" )
     propName       = flag.String( "property-name", "senderid", "Property name" )
-    totSndrs       = flag.Int( "total-senders", 2, "Total senders" )
-    totRcvrs       = flag.Int( "total-receivers", 2, "Total receivers" )
+    totGws         = flag.Int( "total-gateways", 2, "Total simulated gateways" )
     sndIntvl       = flag.Duration( "send-interval", 5 * time.Second, "Interval between successive publish attempts" )
     rcvIntvl       = flag.Duration( "receive-interval", 1 * time.Second, "Interval between successive receive attempts" )
     msgsPerRcv     = flag.Int( "messages-per-receive", 1, "Number of messages to get per receive call" )
@@ -59,8 +58,8 @@ func main( ) {
     setupString( &azsvcbusBench.SubName, subName, "AZSVCBUS_SUB_NAME" )
     setupString( &azsvcbusBench.PropName, propName, "AZSVCBUS_PROP_NAME" )
 
-    setupInt( &azsvcbusBench.TotSenders, totSndrs, "AZSVCBUS_TOTAL_SENDERS" )
-    setupInt( &azsvcbusBench.TotReceivers, totRcvrs, "AZSVCBUS_TOTAL_RECEIVERS" )
+    setupInt( &azsvcbusBench.TotSenders, totGws, "AZSVCBUS_TOTAL_GATEWAYS" )
+    setupInt( &azsvcbusBench.TotReceivers, totGws, "AZSVCBUS_TOTAL_GATEWAYS" )
     setupInt( &azsvcbusBench.MsgsPerReceive, msgsPerRcv, "AZSVCBUS_MSGS_PER_RECEIVE" )
     setupInt( &azsvcbusBench.MsgsPerSend, msgsPerSnd, "AZSVCBUS_MSGS_PER_SEND" )
 

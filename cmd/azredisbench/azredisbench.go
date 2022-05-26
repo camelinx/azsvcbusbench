@@ -17,8 +17,7 @@ var (
     host           = flag.String( "host", "", "Host to access redis" )
     password       = flag.String( "password", "", "Password" )
     propName       = flag.String( "property-name", "senderid", "Property name" )
-    totSndrs       = flag.Int( "total-senders", 2, "Total senders" )
-    totRcvrs       = flag.Int( "total-receivers", 2, "Total receivers" )
+    totGws         = flag.Int( "total-gateways", 2, "Total simulated gateways" )
     sndIntvl       = flag.Duration( "send-interval", 5 * time.Second, "Interval between successive publish attempts" )
     rcvIntvl       = flag.Duration( "receive-interval", 1 * time.Second, "Interval between successive receive attempts" )
     testTime       = flag.Duration( "test-duration", 5 * time.Minute, "Total test time" )
@@ -59,8 +58,8 @@ func main( ) {
 
     setupString( &azredisBench.PropName, propName, "AZREDIS_PROP_NAME" )
 
-    setupInt( &azredisBench.TotSenders, totSndrs, "AZREDIS_TOTAL_SENDERS" )
-    setupInt( &azredisBench.TotReceivers, totRcvrs, "AZREDIS_TOTAL_RECEIVERS" )
+    setupInt( &azredisBench.TotSenders, totGws, "AZREDIS_TOTAL_GATEWAYS" )
+    setupInt( &azredisBench.TotReceivers, totGws, "AZREDIS_TOTAL_GATEWAYS" )
 
     azredisBench.MsgsPerReceive = 1
     azredisBench.MsgsPerSend    = 1

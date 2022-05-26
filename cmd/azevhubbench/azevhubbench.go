@@ -19,8 +19,7 @@ var (
     topicName      = flag.String( "topic-name", "", "Topic to subscribe to" )
     consumerGrpPfx = flag.String( "consumer-group-prefix", "", "Consumer Group Prefix" )
     propName       = flag.String( "property-name", "senderid", "Property name" )
-    totSndrs       = flag.Int( "total-senders", 2, "Total senders" )
-    totRcvrs       = flag.Int( "total-receivers", 2, "Total receivers" )
+    totGws         = flag.Int( "total-gateways", 2, "Total simulated gateways" )
     sndIntvl       = flag.Duration( "send-interval", 5 * time.Second, "Interval between successive publish attempts" )
     rcvIntvl       = flag.Duration( "receive-interval", 1 * time.Second, "Interval between successive receive attempts" )
     msgsPerRcv     = flag.Int( "messages-per-receive", 1, "Number of messages to get per receive call" )
@@ -61,8 +60,8 @@ func main( ) {
     setupString( &azevhubBench.ConsumerGroupPrefix, consumerGrpPfx, "AZEVHUB_CONSUMER_GROUP_PREFIX" )
     setupString( &azevhubBench.PropName, propName, "AZEVHUB_PROP_NAME" )
 
-    setupInt( &azevhubBench.TotSenders, totSndrs, "AZEVHUB_TOTAL_SENDERS" )
-    setupInt( &azevhubBench.TotReceivers, totRcvrs, "AZEVHUB_TOTAL_RECEIVERS" )
+    setupInt( &azevhubBench.TotSenders, totGws, "AZEVHUB_TOTAL_GATEWAYS" )
+    setupInt( &azevhubBench.TotReceivers, totGws, "AZEVHUB_TOTAL_GATEWAYS" )
     setupInt( &azevhubBench.MsgsPerReceive, msgsPerRcv, "AZEVHUB_MSGS_PER_RECEIVE" )
     setupInt( &azevhubBench.MsgsPerSend, msgsPerSnd, "AZEVHUB_MSGS_PER_SEND" )
 
