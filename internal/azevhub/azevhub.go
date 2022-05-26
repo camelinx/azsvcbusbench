@@ -117,7 +117,7 @@ func ( azEvHub *AzEvHub )setupCheckPointPersister( )( evhub_persist.CheckpointPe
 }
 
 func ( azEvHub *AzEvHub )Start( ) {
-    if azRedis.TotSenders != azRedis.TotReceivers {
+    if azEvHub.TotSenders != azEvHub.TotReceivers {
         glog.Fatalf( "Number of senders and receivers must be equal" )
         return
     }

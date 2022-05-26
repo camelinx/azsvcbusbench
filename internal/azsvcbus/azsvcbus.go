@@ -97,7 +97,7 @@ func ( azSvcBus *AzSvcBus )initIdGen( )( err error ) {
 }
 
 func ( azSvcBus *AzSvcBus )Start( ) {
-    if azRedis.TotSenders != azRedis.TotReceivers {
+    if azSvcBus.TotSenders != azSvcBus.TotReceivers {
         glog.Fatalf( "Number of senders and receivers must be equal" )
         return
     }
