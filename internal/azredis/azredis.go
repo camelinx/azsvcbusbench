@@ -303,7 +303,7 @@ func ( azRedis *AzRedis )receiveMessages( idx int, cb azSvcMsgCb, lookup *azRedi
 
     message, err := azRedis.client.HGetAll( azRedis.receiverCtx, lookup.key ).Result( )
     if err == nil && cb != nil {
-        err = cb( idx, message )
+        err = cb( idx, message, lookup )
         if err != nil {
             return err
         }
@@ -312,7 +312,7 @@ func ( azRedis *AzRedis )receiveMessages( idx int, cb azSvcMsgCb, lookup *azRedi
     return nil
 }
 
-func ( azRedis *AzRedis )receivedMessageCallback( idx int, message map[ string ]string, lookup azRedisLookup )( err error ) {
+func ( azRedis *AzRedis )receivedMessageCallback( idx int, message map[ string ]string, lookup *azRedisLookup )( err error ) {
     id, realIdx, err := azRedis.getReceiverIdFromIdx( idx )
     if err != nil {
         glog.Errorf( "Failed to get index, error = %v", err )
@@ -403,7 +403,7 @@ func ( azRedis *AzRedis )startReceiver( idx int ) {
 
     for {
         select {
-            case lookup := <- azRedis.lookupC[ idx ]
+            case lookup := <- azRedis.lookupC[ idx ]:
                 err = azRedis.receiveMessages( idx, cb, lookup )
                 if err != nil {
                     return
