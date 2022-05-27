@@ -277,6 +277,14 @@ func ( azRedis *AzRedis )startSender( idx int ) {
             return
         }
 
+        select {
+            case <-azRedis.senderCtx.Done( ):
+                glog.Infof( "%v: sender done", idx )
+                return
+
+            default:
+        }
+
         time.Sleep( azRedis.SendInterval )
     }
 
@@ -427,11 +435,15 @@ func ( azRedis *AzRedis )startReceiver( idx int ) {
 
     for {
         select {
-            case lookup := <- azRedis.lookupC[ idx ]:
+            case lookup := <-azRedis.lookupC[ idx ]:
                 err = azRedis.receiveMessages( idx, cb, lookup )
                 if err != nil {
                     return
                 }
+
+            case <-azRedis.receiverCtx.Done( ):
+                glog.Infof( "%v: Receiver done", idx )
+                return
 
             default:
         }
