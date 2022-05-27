@@ -52,6 +52,8 @@ type AzRedis struct {
     SenderOnly          bool
     ReceiverOnly        bool
 
+    ReceiveRetries      int
+
     WarmupDuration      time.Duration
     Duration            time.Duration
     SendInterval        time.Duration

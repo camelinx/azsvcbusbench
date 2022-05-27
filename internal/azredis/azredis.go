@@ -154,7 +154,7 @@ func ( azRedis *AzRedis )Start( ) {
 
     azRedis.lookupC = make( [ ]chan *azRedisLookup, azRedis.TotReceivers )
     for i := 0; i < azRedis.TotReceivers; i++ {
-        azRedis.lookupC[ i ] = make( chan *azRedisLookup, 4 )
+        azRedis.lookupC[ i ] = make( chan *azRedisLookup, azRedis.ReceiveRetries )
     }
 
     if !azRedis.SenderOnly {
@@ -218,7 +218,7 @@ func ( azRedis *AzRedis )sendMessage( idx int )( err error ) {
     }
 
     message := map[ string ]interface{ } {
-        contentTypeKey  :   &msgContentType,
+        contentTypeKey  :   msgContentType,
         trackPropName   :   strconv.FormatBool( azRedis.trackTest ),
         testIdPropName  :   azRedis.TestId,
         idxPropName     :   realIdx,
@@ -292,7 +292,7 @@ func ( azRedis *AzRedis )getReceiverIdFromIdx( idx int )( id string, realIdx int
     return azRedis.idGen.Block[ realIdx ], realIdx, nil
 }
 
-type azSvcMsgCb func( idx int, message map[ string ]string, lookup *azRedisLookup )( err error )
+type azSvcMsgCb func( idx int, message map[ string ]string, lookup *azRedisLookup, retries int, rcvError bool )( err error )
 
 func ( azRedis *AzRedis )receiveMessages( idx int, cb azSvcMsgCb, lookup *azRedisLookup )( err error ) {
     _, _, err = azRedis.getReceiverIdFromIdx( idx )
@@ -301,9 +301,27 @@ func ( azRedis *AzRedis )receiveMessages( idx int, cb azSvcMsgCb, lookup *azRedi
         return err
     }
 
-    message, err := azRedis.client.HGetAll( azRedis.receiverCtx, lookup.key ).Result( )
-    if err == nil && cb != nil {
-        err = cb( idx, message, lookup )
+    var message map[ string ]string
+
+    for i := 1; i <= azRedis.ReceiveRetries; i++ {
+        message, err = azRedis.client.HGetAll( azRedis.receiverCtx, lookup.key ).Result( )
+        if err != nil {
+            time.Sleep( azRedis.ReceiveInterval )
+            continue
+        }
+
+        if cb != nil {
+            err = cb( idx, message, lookup, i, false )
+            if err != nil {
+                return err
+            }
+        }
+
+        break
+    }
+
+    if err != nil {
+        err = cb( idx, message, lookup, azRedis.ReceiveRetries + 1, true )
         if err != nil {
             return err
         }
@@ -312,11 +330,16 @@ func ( azRedis *AzRedis )receiveMessages( idx int, cb azSvcMsgCb, lookup *azRedi
     return nil
 }
 
-func ( azRedis *AzRedis )receivedMessageCallback( idx int, message map[ string ]string, lookup *azRedisLookup )( err error ) {
+func ( azRedis *AzRedis )receivedMessageCallback( idx int, message map[ string ]string, lookup *azRedisLookup, retries int, rcvError bool )( err error ) {
     id, realIdx, err := azRedis.getReceiverIdFromIdx( idx )
     if err != nil {
         glog.Errorf( "Failed to get index, error = %v", err )
         return err
+    }
+
+    if rcvError {
+        azRedis.stats.UpdateReceiverStatErrors( realIdx, uint64( 1 ) )
+        return nil
     }
 
     contentType, exists := message[ contentTypeKey ]
@@ -371,6 +394,7 @@ func ( azRedis *AzRedis )receivedMessageCallback( idx int, message map[ string ]
         }
 
         azRedis.stats.UpdateReceiverStat( realIdx, int( senderIdx ), uint64( msgList.Count ), uint64( msgList.GetLatency( ) ) )
+        azRedis.stats.UpdateReceiverStatRetries( realIdx, uint64( retries ) )
     } else {
         glog.Errorf( "%v: Did not find sender index in message application properties", id )
         return fmt.Errorf( "%v: Did not find sender index in message application properties", id )
@@ -397,8 +421,8 @@ func ( azRedis *AzRedis )startReceiver( idx int ) {
         azRedis.closeReceiver( idx )
     }( )
 
-    cb := func( idx int, message map[ string ]string, lookup *azRedisLookup )( err error ) {
-        return azRedis.receivedMessageCallback( idx, message, lookup )
+    cb := func( idx int, message map[ string ]string, lookup *azRedisLookup, retries int, rcvError bool )( err error ) {
+        return azRedis.receivedMessageCallback( idx, message, lookup, retries, rcvError )
     }
 
     for {
@@ -411,8 +435,6 @@ func ( azRedis *AzRedis )startReceiver( idx int ) {
 
             default:
         }
-
-        time.Sleep( azRedis.ReceiveInterval )
     }
 
     return
