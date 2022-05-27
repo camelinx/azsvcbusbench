@@ -7,11 +7,18 @@ import (
 )
 
 type statsElem struct {
-    sent             uint64 // Number of messages sent
-    rcvd             uint64 // Number of messages received
-    rcvdById      [ ]uint64 // Received per id 
-    latency          uint64 // Cumulative latency
+    sent             uint64
+
+    rcvd             uint64
+    rcvdById      [ ]uint64
+
+    retries          uint64
+    maxRetries       uint64
+
+    latency          uint64
     maxLatency       uint64
+
+    errors           uint64
 }
 
 type Stats struct {

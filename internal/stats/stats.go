@@ -75,6 +75,19 @@ func ( stats *Stats )UpdateReceiverStat( idx, fromIdx int, incrBy, lIncrBy uint6
     }
 }
 
+func ( stats *Stats )UpdateReceiverStatRetries( idx int, retries uint64 ) {
+    atomic.AddUint64( &stats.elems[ idx ].retries, retries )
+
+    maxRetries := stats.elems[ idx ].maxRetries
+    if retries > maxRetries {
+        atomic.CompareAndSwapUint64( &stats.elems[ idx ].maxRetries, maxRetries, retries )
+    }
+}
+
+func ( stats *Stats )UpdateReceiverStatErrors( idx int, errors uint64 ) {
+    atomic.AddUint64( &stats.elems[ idx ].errors, errors )
+}
+
 func ( stats *Stats )dumpStats( ) {
     ticker := time.NewTicker( stats.dumpInterval )
 
@@ -98,11 +111,14 @@ func ( stats *Stats )dump( byId bool ) {
             avgLatency = v.latency / v.rcvd
         }
 
-        glog.Infof( "%v: Sent %v Received %v Average Latency %v Max Latency %v", stats.ids[ i ], v.sent, v.rcvd, avgLatency, v.maxLatency )
+        fmt.Printf(
+            "%v: Sent %v Rcvd %v Retries %v Max Retries %v Avg Latency %v Max Latency %v Errors %v\n",
+            stats.ids[ i ], v.sent, v.rcvd, v.retries, v.maxRetries, avgLatency, v.maxLatency, v.errors,
+        )
 
         if byId {
             for j, jv := range v.rcvdById {
-                glog.Infof( "%v: Received %v", stats.ids[ j ], jv )
+                fmt.Printf( "%v: Received %v\n", stats.ids[ j ], jv )
             }
         }
     }
