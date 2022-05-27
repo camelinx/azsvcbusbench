@@ -20,6 +20,7 @@ var (
     totGws         = flag.Int( "total-gateways", 2, "Total simulated gateways" )
     sndIntvl       = flag.Duration( "send-interval", 5 * time.Second, "Interval between successive publish attempts" )
     rcvIntvl       = flag.Duration( "receive-interval", 1 * time.Second, "Interval between successive receive attempts" )
+    rcvRetries     = flag.Int( "receive-retries", 4, "No of times to attempt reading a key" )
     testTime       = flag.Duration( "test-duration", 5 * time.Minute, "Total test time" )
     testWarmupTime = flag.Duration( "test-warmup-time", 1 * time.Minute, "Test warmup time" )
     sndrOnly       = flag.Bool( "sender-only", false, "Enable sender only" )
@@ -66,6 +67,8 @@ func main( ) {
 
     setupBool( &azredisBench.SenderOnly, sndrOnly, "AZREDIS_SENDER_ONLY" )
     setupBool( &azredisBench.ReceiverOnly, rcvrOnly, "AZREDIS_RECEIVER_ONLY" )
+
+    setupInt( &azredisBench.ReceiveRetries, rcvRetries, "AZREDIS_RECEIVE_RETRIES" )
 
     setupDuration( &azredisBench.Duration, testTime, "AZREDIS_TEST_DURATION" )
     setupDuration( &azredisBench.WarmupDuration, testWarmupTime, "AZSVCBUS_TEST_WARMUP_TIME" )
