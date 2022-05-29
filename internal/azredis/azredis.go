@@ -436,10 +436,7 @@ func ( azRedis *AzRedis )startReceiver( idx int ) {
     for {
         select {
             case lookup := <-azRedis.lookupC[ idx ]:
-                err = azRedis.receiveMessages( idx, cb, lookup )
-                if err != nil {
-                    return
-                }
+                azRedis.receiveMessages( idx, cb, lookup )
 
             case <-azRedis.receiverCtx.Done( ):
                 glog.Infof( "%v: Receiver done", idx )
