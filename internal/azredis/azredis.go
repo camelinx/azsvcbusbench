@@ -122,7 +122,7 @@ func ( azRedis *AzRedis )Start( ) {
     ctx, _             := context.WithTimeout( context.Background( ), realDuration )
     azRedis.senderCtx  = ctx
 
-    ctx, cancel := context.WithTimeout( context.Background( ), realDuration + ( 2 * time.Minute ) )
+    ctx, cancel := context.WithTimeout( context.Background( ), realDuration + ( 30 * time.Second ) )
     defer func( ) {
         cancel( )
     }( )
