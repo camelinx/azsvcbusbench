@@ -345,9 +345,15 @@ func ( azRedis *AzRedis )receivedMessageCallback( idx int, message map[ string ]
         return err
     }
 
+    defer func( ) {
+        if err != nil {
+            azRedis.stats.UpdateReceiverStatErrors( realIdx, uint64( 1 ) )
+        }
+    }( )
+
     if rcvError {
-        azRedis.stats.UpdateReceiverStatErrors( realIdx, uint64( 1 ) )
-        return nil
+        glog.Errorf( "%v: Failed to lookup key %v", id, lookup.key )
+        return fmt.Errorf( "%v: Failed to lookup key %v", id, lookup.key )
     }
 
     contentType, exists := message[ contentTypeKey ]
