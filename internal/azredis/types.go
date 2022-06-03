@@ -17,7 +17,7 @@ type azRedisLookup struct {
 }
 
 type azRedisCtx struct {
-    client             *redis.Client
+    clients          [ ]*redis.Client
 
     lookupC          [ ]chan *azRedisLookup
 
@@ -41,11 +41,12 @@ type AzRedis struct {
     Password            string
     PropName            string
 
+    ClientPerGw         bool
+
     IpsFile             string
     IdsFile             string
 
-    TotSenders          int
-    TotReceivers        int
+    TotGateways         int
     MsgsPerReceive      int
     MsgsPerSend         int
 

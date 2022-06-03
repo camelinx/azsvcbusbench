@@ -83,12 +83,7 @@ func ( azRedis *AzRedis )initIdGen( )( err error ) {
 
         err = idGen.InitIdBlockFromReader( fh )
     } else {
-        uuidsLen := azRedis.TotSenders
-        if uuidsLen < azRedis.TotReceivers {
-            uuidsLen = azRedis.TotReceivers
-        }
-
-        err = idGen.InitIdBlock( uuidsLen )
+        err = idGen.InitIdBlock( azRedis.TotGateways )
     }
 
     if err != nil {
@@ -100,23 +95,52 @@ func ( azRedis *AzRedis )initIdGen( )( err error ) {
     return nil
 }
 
-func ( azRedis *AzRedis )Start( ) {
-    if azRedis.TotSenders != azRedis.TotReceivers {
-        glog.Fatalf( "Number of senders and receivers must be equal" )
-        return
+func ( azRedis *AzRedis )initClients( )( err error ) {
+    azRedis.clients = make( [ ]*redis.Client, azRedis.TotGateways )
+    if azRedis.ClientPerGw {
+        for i := 0; i < azRedis.TotGateways; i++ {
+            azRedis.clients[ i ] = redis.NewClient(
+                &redis.Options {
+                    Addr            :   azRedis.Host,
+                    Password        :   azRedis.Password,
+                    WriteTimeout    :   azRedis.SendInterval,
+                    TLSConfig       :   &tls.Config {
+                        MinVersion  :   tls.VersionTLS12,
+                    },
+                },
+            )
+
+            err = azRedis.clients[ i ].Ping( azRedis.senderCtx ).Err( )
+            if err != nil {
+                return fmt.Errorf( "failed to connect with redis instance at %v - %v", azRedis.Host, err )
+            }
+        }
+    } else {
+        client := redis.NewClient(
+            &redis.Options {
+                Addr            :   azRedis.Host,
+                Password        :   azRedis.Password,
+                WriteTimeout    :   azRedis.SendInterval,
+                TLSConfig       :   &tls.Config {
+                    MinVersion  :   tls.VersionTLS12,
+                },
+            },
+        )
+
+        err = client.Ping( azRedis.senderCtx ).Err( )
+        if err != nil {
+            return fmt.Errorf( "failed to connect with redis instance at %v - %v", azRedis.Host, err )
+        }
+
+        for i := 0; i < azRedis.TotGateways; i++ {
+            azRedis.clients[ i ] = client
+        }
     }
 
-    azRedis.client = redis.NewClient(
-        &redis.Options {
-            Addr            :   azRedis.Host,
-            Password        :   azRedis.Password,
-            WriteTimeout    :   azRedis.SendInterval,
-            TLSConfig       :   &tls.Config {
-                MinVersion  :   tls.VersionTLS12,
-            },
-        },
-    )
+    return nil
+}
 
+func ( azRedis *AzRedis )Start( ) {
     realDuration := azRedis.Duration + azRedis.WarmupDuration
 
     ctx, _             := context.WithTimeout( context.Background( ), realDuration )
@@ -129,9 +153,9 @@ func ( azRedis *AzRedis )Start( ) {
     azRedis.receiverCtx = ctx
     azRedis.statsCtx    = ctx
 
-    err := azRedis.client.Ping( azRedis.senderCtx ).Err( )
+    err := azRedis.initClients( )
     if err != nil {
-        glog.Fatalf( "failed to connect with redis instance at %v - %v", azRedis.Host, err )
+        glog.Fatalf( "%v", err )
         return
     } 
 
@@ -152,14 +176,14 @@ func ( azRedis *AzRedis )Start( ) {
     azRedis.stats.SetStatsDumpInterval( azRedis.StatDumpInterval )
     azRedis.stats.StartDumper( )
 
-    azRedis.lookupC = make( [ ]chan *azRedisLookup, azRedis.TotReceivers )
-    for i := 0; i < azRedis.TotReceivers; i++ {
+    azRedis.lookupC = make( [ ]chan *azRedisLookup, azRedis.TotGateways )
+    for i := 0; i < azRedis.TotGateways; i++ {
         azRedis.lookupC[ i ] = make( chan *azRedisLookup, azRedis.ReceiveRetries )
     }
 
     if !azRedis.SenderOnly {
-        azRedis.wg.Add( azRedis.TotReceivers )
-        for i := 0; i < azRedis.TotReceivers; i++ {
+        azRedis.wg.Add( azRedis.TotGateways )
+        for i := 0; i < azRedis.TotGateways; i++ {
             go func( idx int ) {
                 defer azRedis.wg.Done( )
                 azRedis.startReceiver( idx )
@@ -168,8 +192,8 @@ func ( azRedis *AzRedis )Start( ) {
     }
 
     if !azRedis.ReceiverOnly {
-        azRedis.wg.Add( azRedis.TotSenders )
-        for i := 0; i < azRedis.TotSenders; i++ {
+        azRedis.wg.Add( azRedis.TotGateways )
+        for i := 0; i < azRedis.TotGateways; i++ {
             go func( idx int ) {
                 defer azRedis.wg.Done( )
                 azRedis.startSender( idx )
@@ -202,7 +226,7 @@ func ( azRedis *AzRedis )trackWarmup( ) {
 }
 
 func ( azRedis *AzRedis )getSenderIdFromIdx( idx int )( id string, realIdx int, err error ) {
-    realIdx = idx + ( azRedis.Index * azRedis.TotSenders )
+    realIdx = idx + ( azRedis.Index * azRedis.TotGateways )
     if realIdx >= len( azRedis.idGen.Block ) {
         return "", 0, fmt.Errorf( "did not find id for index %v and offset index %v", idx, azRedis.Index )
     }
@@ -238,7 +262,7 @@ func ( azRedis *AzRedis )sendMessage( idx int )( err error ) {
 
     message[ bodyKey ] = msg
 
-    _, err = azRedis.client.HSet( azRedis.senderCtx, key, message ).Result( )
+    _, err = azRedis.clients[ idx ].HSet( azRedis.senderCtx, key, message ).Result( )
     if err != nil {
         glog.Errorf( "%v: Failed to send message, error = %v", id, err )
         return err
@@ -292,7 +316,7 @@ func ( azRedis *AzRedis )startSender( idx int ) {
 }
 
 func ( azRedis *AzRedis )getReceiverIdFromIdx( idx int )( id string, realIdx int, err error ) {
-    realIdx = idx + ( azRedis.Index * azRedis.TotReceivers )
+    realIdx = idx + ( azRedis.Index * azRedis.TotGateways )
     if realIdx >= len( azRedis.idGen.Block ) {
         return "", 0, fmt.Errorf( "did not find id for index %v and offset index %v", idx, azRedis.Index )
     }
@@ -312,7 +336,7 @@ func ( azRedis *AzRedis )receiveMessages( idx int, cb azSvcMsgCb, lookup *azRedi
     var message map[ string ]string
 
     for i := 1; i <= azRedis.ReceiveRetries; i++ {
-        message, err = azRedis.client.HGetAll( azRedis.receiverCtx, lookup.key ).Result( )
+        message, err = azRedis.clients[ idx ].HGetAll( azRedis.receiverCtx, lookup.key ).Result( )
         if err != nil {
             time.Sleep( azRedis.ReceiveInterval )
             continue
