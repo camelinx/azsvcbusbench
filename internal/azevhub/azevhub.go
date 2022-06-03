@@ -82,12 +82,7 @@ func ( azEvHub *AzEvHub )initIdGen( )( err error ) {
 
         err = idGen.InitIdBlockFromReader( fh )
     } else {
-        uuidsLen := azEvHub.TotSenders
-        if uuidsLen < azEvHub.TotReceivers {
-            uuidsLen = azEvHub.TotReceivers
-        }
-
-        err = idGen.InitIdBlock( uuidsLen )
+        err = idGen.InitIdBlock( azEvHub.TotGateways )
     }
 
     if err != nil {
@@ -117,11 +112,6 @@ func ( azEvHub *AzEvHub )setupCheckPointPersister( )( evhub_persist.CheckpointPe
 }
 
 func ( azEvHub *AzEvHub )Start( ) {
-    if azEvHub.TotSenders != azEvHub.TotReceivers {
-        glog.Fatalf( "Number of senders and receivers must be equal" )
-        return
-    }
-
     persister, err := azEvHub.setupCheckPointPersister( )
     if err != nil {
         glog.Fatalf( "failed to initialize checkpoint persister %v", err )
@@ -168,10 +158,10 @@ func ( azEvHub *AzEvHub )Start( ) {
     azEvHub.stats.StartDumper( )
 
     if !azEvHub.SenderOnly {
-        azEvHub.receiversChan  = make( [ ]chan error, azEvHub.TotReceivers )
-        azEvHub.consumerGroups = make( [ ]string, azEvHub.TotReceivers )
-        azEvHub.wg.Add( azEvHub.TotReceivers )
-        for i := 0; i < azEvHub.TotReceivers; i++ {
+        azEvHub.receiversChan  = make( [ ]chan error, azEvHub.TotGateways )
+        azEvHub.consumerGroups = make( [ ]string, azEvHub.TotGateways )
+        azEvHub.wg.Add( azEvHub.TotGateways )
+        for i := 0; i < azEvHub.TotGateways; i++ {
             azEvHub.receiversChan[ i ] = make( chan error )
 
             go func( idx int ) {
@@ -187,8 +177,8 @@ func ( azEvHub *AzEvHub )Start( ) {
     }
 
     if !azEvHub.ReceiverOnly {
-        azEvHub.wg.Add( azEvHub.TotSenders )
-        for i := 0; i < azEvHub.TotSenders; i++ {
+        azEvHub.wg.Add( azEvHub.TotGateways )
+        for i := 0; i < azEvHub.TotGateways; i++ {
             go func( idx int ) {
                 defer azEvHub.wg.Done( )
                 azEvHub.startSender( idx )
@@ -221,7 +211,7 @@ func ( azEvHub *AzEvHub )trackWarmup( ) {
 }
 
 func ( azEvHub *AzEvHub )getSenderIdFromIdx( idx int )( id string, realIdx int, err error ) {
-    realIdx = idx + ( azEvHub.Index * azEvHub.TotSenders )
+    realIdx = idx + ( azEvHub.Index * azEvHub.TotGateways )
     if realIdx >= len( azEvHub.idGen.Block ) {
         return "", 0, fmt.Errorf( "did not find id for index %v and offset index %v", idx, azEvHub.Index )
     }
@@ -307,7 +297,7 @@ func ( azEvHub *AzEvHub )startSender( idx int ) {
 }
 
 func ( azEvHub *AzEvHub )getReceiverIdFromIdx( idx int )( id string, realIdx int, err error ) {
-    realIdx = idx + ( azEvHub.Index * azEvHub.TotReceivers )
+    realIdx = idx + ( azEvHub.Index * azEvHub.TotGateways )
     if realIdx >= len( azEvHub.idGen.Block ) {
         return "", 0, fmt.Errorf( "did not find id for index %v and offset index %v", idx, azEvHub.Index )
     }
