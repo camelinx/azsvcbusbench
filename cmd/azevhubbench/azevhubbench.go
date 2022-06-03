@@ -60,8 +60,7 @@ func main( ) {
     setupString( &azevhubBench.ConsumerGroupPrefix, consumerGrpPfx, "AZEVHUB_CONSUMER_GROUP_PREFIX" )
     setupString( &azevhubBench.PropName, propName, "AZEVHUB_PROP_NAME" )
 
-    setupInt( &azevhubBench.TotSenders, totGws, "AZEVHUB_TOTAL_GATEWAYS" )
-    setupInt( &azevhubBench.TotReceivers, totGws, "AZEVHUB_TOTAL_GATEWAYS" )
+    setupInt( &azevhubBench.TotGateways, totGws, "AZEVHUB_TOTAL_GATEWAYS" )
     setupInt( &azevhubBench.MsgsPerReceive, msgsPerRcv, "AZEVHUB_MSGS_PER_RECEIVE" )
     setupInt( &azevhubBench.MsgsPerSend, msgsPerSnd, "AZEVHUB_MSGS_PER_SEND" )
 

@@ -58,8 +58,7 @@ func main( ) {
     setupString( &azsvcbusBench.SubName, subName, "AZSVCBUS_SUB_NAME" )
     setupString( &azsvcbusBench.PropName, propName, "AZSVCBUS_PROP_NAME" )
 
-    setupInt( &azsvcbusBench.TotSenders, totGws, "AZSVCBUS_TOTAL_GATEWAYS" )
-    setupInt( &azsvcbusBench.TotReceivers, totGws, "AZSVCBUS_TOTAL_GATEWAYS" )
+    setupInt( &azsvcbusBench.TotGateways, totGws, "AZSVCBUS_TOTAL_GATEWAYS" )
     setupInt( &azsvcbusBench.MsgsPerReceive, msgsPerRcv, "AZSVCBUS_MSGS_PER_RECEIVE" )
     setupInt( &azsvcbusBench.MsgsPerSend, msgsPerSnd, "AZSVCBUS_MSGS_PER_SEND" )
 

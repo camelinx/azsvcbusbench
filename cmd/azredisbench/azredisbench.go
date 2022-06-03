@@ -17,6 +17,7 @@ var (
     host           = flag.String( "host", "", "Host to access redis" )
     password       = flag.String( "password", "", "Password" )
     propName       = flag.String( "property-name", "senderid", "Property name" )
+    clientPerGw    = flag.Bool( "client-per-gateway", false, "Enable creating a redis client per gateway" )
     totGws         = flag.Int( "total-gateways", 2, "Total simulated gateways" )
     sndIntvl       = flag.Duration( "send-interval", 5 * time.Second, "Interval between successive publish attempts" )
     rcvIntvl       = flag.Duration( "receive-interval", 1 * time.Second, "Interval between successive receive attempts" )
@@ -59,8 +60,9 @@ func main( ) {
 
     setupString( &azredisBench.PropName, propName, "AZREDIS_PROP_NAME" )
 
-    setupInt( &azredisBench.TotSenders, totGws, "AZREDIS_TOTAL_GATEWAYS" )
-    setupInt( &azredisBench.TotReceivers, totGws, "AZREDIS_TOTAL_GATEWAYS" )
+    setupBool( &azredisBench.ClientPerGw, clientPerGw, "AZREDIS_CLIENT_PER_GATEWAY" )
+
+    setupInt( &azredisBench.TotGateways, totGws, "AZREDIS_TOTAL_GATEWAYS" )
 
     azredisBench.MsgsPerReceive = 1
     azredisBench.MsgsPerSend    = 1
