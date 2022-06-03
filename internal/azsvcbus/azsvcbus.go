@@ -79,12 +79,7 @@ func ( azSvcBus *AzSvcBus )initIdGen( )( err error ) {
 
         err = idGen.InitIdBlockFromReader( fh )
     } else {
-        uuidsLen := azSvcBus.TotSenders
-        if uuidsLen < azSvcBus.TotReceivers {
-            uuidsLen = azSvcBus.TotReceivers
-        }
-
-        err = idGen.InitIdBlock( uuidsLen )
+        err = idGen.InitIdBlock( azSvcBus.TotGateways )
     }
 
     if err != nil {
@@ -97,11 +92,6 @@ func ( azSvcBus *AzSvcBus )initIdGen( )( err error ) {
 }
 
 func ( azSvcBus *AzSvcBus )Start( ) {
-    if azSvcBus.TotSenders != azSvcBus.TotReceivers {
-        glog.Fatalf( "Number of senders and receivers must be equal" )
-        return
-    }
-
     client, err := azservicebus.NewClientFromConnectionString( azSvcBus.ConnStr, nil )
     if err != nil {
         glog.Fatalf( "failed to setup Azure Service Bus client %v", err )
@@ -140,9 +130,9 @@ func ( azSvcBus *AzSvcBus )Start( ) {
     azSvcBus.stats.StartDumper( )
 
     if !azSvcBus.SenderOnly {
-        azSvcBus.receivers = make( [ ]*azservicebus.Receiver, azSvcBus.TotReceivers )
-        azSvcBus.wg.Add( azSvcBus.TotReceivers )
-        for i := 0; i < azSvcBus.TotReceivers; i++ {
+        azSvcBus.receivers = make( [ ]*azservicebus.Receiver, azSvcBus.TotGateways )
+        azSvcBus.wg.Add( azSvcBus.TotGateways )
+        for i := 0; i < azSvcBus.TotGateways; i++ {
             go func( idx int ) {
                 defer azSvcBus.wg.Done( )
                 azSvcBus.startReceiver( idx )
@@ -151,9 +141,9 @@ func ( azSvcBus *AzSvcBus )Start( ) {
     }
 
     if !azSvcBus.ReceiverOnly {
-        azSvcBus.senders = make( [ ]*azservicebus.Sender, azSvcBus.TotSenders )
-        azSvcBus.wg.Add( azSvcBus.TotSenders )
-        for i := 0; i < azSvcBus.TotSenders; i++ {
+        azSvcBus.senders = make( [ ]*azservicebus.Sender, azSvcBus.TotGateways )
+        azSvcBus.wg.Add( azSvcBus.TotGateways )
+        for i := 0; i < azSvcBus.TotGateways; i++ {
             go func( idx int ) {
                 defer azSvcBus.wg.Done( )
                 azSvcBus.startSender( idx )
@@ -186,7 +176,7 @@ func ( azSvcBus *AzSvcBus )trackWarmup( ) {
 }
 
 func ( azSvcBus *AzSvcBus )getSenderIdFromIdx( idx int )( id string, realIdx int, err error ) {
-    realIdx = idx + ( azSvcBus.Index * azSvcBus.TotSenders )
+    realIdx = idx + ( azSvcBus.Index * azSvcBus.TotGateways )
     if realIdx >= len( azSvcBus.idGen.Block ) {
         return "", 0, fmt.Errorf( "did not find id for index %v and offset index %v", idx, azSvcBus.Index )
     }
@@ -287,7 +277,7 @@ func ( azSvcBus *AzSvcBus )startSender( idx int ) {
 }
 
 func ( azSvcBus *AzSvcBus )getReceiverIdFromIdx( idx int )( id string, realIdx int, err error ) {
-    realIdx = idx + ( azSvcBus.Index * azSvcBus.TotReceivers )
+    realIdx = idx + ( azSvcBus.Index * azSvcBus.TotGateways )
     if realIdx >= len( azSvcBus.idGen.Block ) {
         return "", 0, fmt.Errorf( "did not find id for index %v and offset index %v", idx, azSvcBus.Index )
     }

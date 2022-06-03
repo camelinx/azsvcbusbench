@@ -39,8 +39,7 @@ type AzSvcBus struct {
     IpsFile             string
     IdsFile             string
 
-    TotSenders          int
-    TotReceivers        int
+    TotGateways         int
     MsgsPerReceive      int
     MsgsPerSend         int
 
